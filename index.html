@@ -1,0 +1,2109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RB — Proyecto 42k 2028</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #13151c;
+    --surface2: #1a1d27;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #e8eaf0;
+    --muted: #7a7f94;
+    --accent: #4f9eff;
+    --accent2: #00d4a0;
+    --danger: #ff5c5c;
+    --amber: #ffa040;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Sora', sans-serif; font-size: 14px; min-height: 100vh; }
+  
+  /* LAYOUT */
+  .shell { display: flex; min-height: 100vh; }
+  
+  /* SIDEBAR */
+  .sidebar {
+    width: 220px; min-height: 100vh; background: var(--surface);
+    border-right: 1px solid var(--border); padding: 28px 0;
+    position: fixed; top: 0; left: 0; z-index: 100;
+    display: flex; flex-direction: column;
+  }
+  .logo { padding: 0 24px 28px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .logo-title { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: var(--accent); letter-spacing: 0.08em; }
+  .logo-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 24px; cursor: pointer; color: var(--muted);
+    font-size: 13px; font-weight: 400; transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(79,158,255,0.06); }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+  .sidebar-bottom { margin-top: auto; padding: 16px 24px; border-top: 1px solid var(--border); }
+  .days-counter { font-family: 'DM Mono', monospace; }
+  .days-num { font-size: 28px; font-weight: 500; color: var(--accent2); }
+  .days-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .days-label.sync-online { color: var(--accent2); }
+  .days-label.sync-offline { color: var(--amber); }
+  .progress-outer { background: var(--surface2); border-radius: 20px; height: 4px; margin-top: 8px; overflow: hidden; }
+  .progress-inner { height: 100%; border-radius: 20px; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width 0.5s; }
+  .auth-panel {
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
+    display: grid; gap: 8px;
+  }
+  .auth-status { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.09em; }
+  .auth-email { font-size: 11px; line-height: 1.4; color: var(--text); word-break: break-word; }
+  .auth-actions { display: flex; flex-direction: column; gap: 8px; }
+  .auth-btn {
+    border: 1px solid var(--border2); border-radius: 999px; background: var(--surface2); color: var(--text);
+    padding: 9px 12px; font-family: 'Sora', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .auth-btn:hover { border-color: rgba(79,158,255,0.45); color: var(--accent); }
+  .auth-btn.secondary:hover { color: var(--danger); border-color: rgba(255,92,92,0.4); }
+
+  /* MAIN */
+  .main { margin-left: 220px; flex: 1; padding: 32px; max-width: calc(100vw - 220px); }
+  .page { display: none; }
+  .page.active { display: block; }
+  
+  /* PAGE HEADER */
+  .page-header { margin-bottom: 28px; }
+  .page-title { font-size: 22px; font-weight: 600; color: var(--text); }
+  .page-subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  /* METRIC CARDS */
+  .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .metric-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+  }
+  .metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+  .metric-value { font-family: 'DM Mono', monospace; font-size: 26px; font-weight: 500; color: var(--text); }
+  .metric-value.green { color: var(--accent2); }
+  .metric-value.blue { color: var(--accent); }
+  .metric-value.red { color: var(--danger); }
+  .metric-value.amber { color: var(--amber); }
+  .metric-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 22px; margin-bottom: 18px;
+  }
+  .card-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 16px; font-weight: 500; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+
+  /* CHARTS */
+  .chart-wrap { position: relative; width: 100%; }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th { text-align: left; color: var(--muted); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--surface2); }
+
+  /* BADGES */
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; font-family: 'DM Mono', monospace; }
+  .badge-green { background: rgba(0,212,160,0.12); color: var(--accent2); }
+  .badge-red { background: rgba(255,92,92,0.12); color: var(--danger); }
+  .badge-blue { background: rgba(79,158,255,0.12); color: var(--accent); }
+  .badge-amber { background: rgba(255,160,64,0.12); color: var(--amber); }
+  .badge-gray { background: rgba(255,255,255,0.07); color: var(--muted); }
+
+  /* FORM */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+  .form-group input, .form-group select, .form-group textarea {
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); color: var(--text); font-family: 'Sora', sans-serif;
+    font-size: 13px; padding: 9px 12px; outline: none; transition: border-color 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+  .form-group textarea { height: 70px; resize: vertical; }
+  .form-full { grid-column: 1 / -1; }
+  select option { background: #1a1d27; }
+  .btn-submit {
+    background: var(--accent); color: #0d0f14; border: none;
+    border-radius: var(--radius-sm); padding: 11px 24px; font-family: 'Sora', sans-serif;
+    font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 14px;
+    transition: opacity 0.15s; letter-spacing: 0.02em;
+  }
+  .btn-submit:hover { opacity: 0.85; }
+  .btn-danger { background: rgba(255,92,92,0.15); color: var(--danger); border: 1px solid rgba(255,92,92,0.2); border-radius: var(--radius-sm); padding: 5px 10px; font-size: 11px; cursor: pointer; font-family: 'Sora', sans-serif; }
+  .btn-danger:hover { background: rgba(255,92,92,0.25); }
+  .deficit-preview { font-family: 'DM Mono', monospace; font-size: 13px; margin-top: 10px; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--surface2); display: none; }
+  .success-toast {
+    position: fixed; bottom: 28px; right: 28px; background: var(--accent2);
+    color: #0d0f14; padding: 12px 20px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; z-index: 999; display: none;
+    animation: slideup 0.3s ease;
+  }
+  @keyframes slideup { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* WEIGHT TABLE */
+  .weight-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .weight-row:last-child { border-bottom: none; }
+
+  /* CARRERAS */
+  .carrera-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .carrera-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; position: relative; }
+  .carrera-card.next { border-color: var(--accent); background: rgba(79,158,255,0.05); }
+  .carrera-card.futura { border-color: rgba(255,160,64,0.4); background: rgba(255,160,64,0.04); }
+  .carrera-name { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .carrera-km { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 500; color: var(--accent); }
+  .carrera-km span { font-size: 14px; color: var(--muted); }
+  .carrera-time { font-family: 'DM Mono', monospace; font-size: 16px; color: var(--accent2); margin-top: 4px; }
+  .carrera-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .carrera-delete { position: absolute; top: 8px; right: 10px; font-size: 14px; cursor: pointer; color: var(--muted); opacity: 0; transition: opacity 0.15s; background: none; border: none; }
+  .carrera-card:hover .carrera-delete { opacity: 1; }
+  .carrera-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .carrera-form input, .carrera-form select { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); padding: 9px 12px; border-radius: var(--radius-sm); font-size: 13px; font-family: 'Sora', sans-serif; width: 100%; }
+  .carrera-form input:focus, .carrera-form select:focus { outline: none; border-color: var(--accent); }
+  .carrera-form-full { grid-column: 1 / -1; }
+
+  /* METAS */
+  .metas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .meta-col { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .meta-col-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 12px; font-weight: 500; }
+  .meta-item { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .meta-item:last-child { border-bottom: none; }
+  .meta-check { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--border2); flex-shrink: 0; transition: all 0.2s; margin-top: 1px; }
+  .meta-check.done { background: var(--accent2); border-color: var(--accent2); }
+  .meta-text { font-size: 12px; color: var(--text); line-height: 1.4; }
+  .meta-text.done { color: var(--muted); text-decoration: line-through; }
+  .libros-list { margin-bottom: 14px; }
+  .libro-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .libro-row:last-child { border-bottom: none; }
+  .add-libro-row { display: flex; gap: 8px; margin-top: 12px; }
+  .add-libro-row input { flex: 1; }
+  .btn-add { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius-sm); padding: 9px 16px; font-size: 13px; cursor: pointer; font-family: 'Sora', sans-serif; white-space: nowrap; }
+  .btn-add:hover { border-color: var(--accent); color: var(--accent); }
+  .backup-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .backup-note { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .project-hero { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 18px; margin-bottom: 18px; }
+  .project-phase-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .phase-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; position: relative; overflow: hidden; }
+  .phase-card.current { border-color: rgba(0,212,160,0.45); box-shadow: inset 0 0 0 1px rgba(0,212,160,0.15); }
+  .phase-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: linear-gradient(180deg, var(--accent), var(--accent2)); opacity: 0.85; }
+  .phase-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+  .phase-year { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .phase-name { font-size: 19px; font-weight: 600; margin-top: 4px; }
+  .phase-range { font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .phase-days { font-family: 'DM Mono', monospace; font-size: 12px; }
+  .phase-notes { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .week-plan { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+  .day-pill { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; min-height: 74px; }
+  .day-pill-label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent2); letter-spacing: 0.08em; margin-bottom: 5px; }
+  .day-pill-text { font-size: 12px; line-height: 1.45; color: var(--text); }
+  .project-summary-list { display: grid; gap: 10px; margin-top: 14px; }
+  .project-summary-item { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; }
+  .project-summary-label { font-size: 12px; color: var(--muted); }
+  .project-summary-value { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--text); text-align: right; }
+
+  /* CALENDARIO */
+  .calendar-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  .calendar-toolbar-actions { display: flex; align-items: center; gap: 10px; }
+  .calendar-nav-btn {
+    background: var(--surface2); border: 1px solid var(--border2); color: var(--text);
+    border-radius: var(--radius-sm); padding: 8px 12px; cursor: pointer; font-family: 'Sora', sans-serif;
+  }
+  .calendar-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .calendar-side-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 18px; }
+  .calendar-list { display: grid; gap: 10px; margin-top: 14px; }
+  .calendar-list-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .calendar-list-title { font-size: 13px; font-weight: 600; }
+  .calendar-list-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .calendar-list-notes { font-size: 12px; color: var(--text); margin-top: 8px; line-height: 1.45; }
+  .calendar-empty { font-size: 12px; color: var(--muted); padding: 8px 0; }
+  .calendar-event-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .calendar-hidden { display: none; }
+  .calendar-week-card { margin-top: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; }
+  .calendar-week-shell { overflow-x: auto; }
+  .calendar-week-board {
+    display: grid; grid-template-columns: 80px repeat(5, minmax(180px, 1fr));
+    gap: 4px; min-width: 980px;
+  }
+  .calendar-week-head, .calendar-week-time, .calendar-week-cell {
+    background: #10121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 10px;
+  }
+  .calendar-week-head {
+    padding: 12px 10px; text-align: center; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text); font-weight: 600;
+  }
+  .calendar-week-time {
+    min-height: 72px; display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
+  }
+  .calendar-week-cell { min-height: 72px; padding: 8px; position: relative; }
+  .calendar-week-block {
+    height: 100%; border-radius: 12px; padding: 10px 12px; color: #0d0f14; font-weight: 700;
+    display: flex; flex-direction: column; justify-content: center; text-align: center;
+    box-shadow: inset 0 -10px 20px rgba(0,0,0,0.08);
+  }
+  .calendar-week-block-time { font-size: 10px; font-family: 'DM Mono', monospace; margin-top: 5px; opacity: 0.8; }
+  .calendar-week-block-tag {
+    align-self: center; margin-top: 6px; font-size: 10px; padding: 2px 8px;
+    border-radius: 999px; background: rgba(0,0,0,0.18); color: rgba(13,15,20,0.85);
+  }
+
+  /* LEGEND */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* TIMELINE countdown */
+  .countdown { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .countdown-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+  .countdown-num { font-family: 'DM Mono', monospace; font-size: 32px; font-weight: 500; color: var(--accent); }
+  .countdown-unit { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.07em; }
+
+  /* FILTER ROW */
+  .filter-row { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+  .filter-row input, .filter-row select { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: 'Sora', sans-serif; font-size: 12px; padding: 7px 12px; outline: none; }
+  .filter-row input { width: 150px; }
+
+  @media (max-width: 900px) {
+    body { font-size: 13px; }
+    .shell { display: block; }
+    .sidebar {
+      width: 100%; min-height: auto; position: sticky; top: 0; left: 0;
+      padding: 12px 0 0; border-right: none; border-bottom: 1px solid var(--border);
+      background: rgba(19,21,28,0.97); backdrop-filter: blur(10px);
+    }
+    .logo { padding: 0 16px 12px; margin-bottom: 10px; }
+    .logo-title { font-size: 12px; }
+    .logo-sub { font-size: 10px; }
+    .sidebar nav {
+      display: flex; gap: 8px; overflow-x: auto; padding: 0 12px 12px;
+      scrollbar-width: thin;
+    }
+    .nav-item {
+      min-width: max-content; border-left: none; border-bottom: 2px solid transparent;
+      padding: 10px 12px; border-radius: 10px; flex-shrink: 0;
+    }
+    .nav-item.active { border-left-color: transparent; border-bottom-color: var(--accent); }
+    .nav-item span { display: inline; }
+    .nav-icon { width: auto; }
+    .sidebar-bottom { display: block; padding: 12px 16px 14px; }
+    .main { margin-left: 0; max-width: 100vw; padding: 16px 14px 24px; }
+    .metrics-row { grid-template-columns: 1fr 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+    .three-col { grid-template-columns: 1fr 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .project-hero, .project-phase-grid, .week-plan { grid-template-columns: 1fr; }
+    .countdown { grid-template-columns: 1fr 1fr; }
+    .card, .calendar-side-card, .calendar-week-card, .metric-card { padding: 16px; }
+    .page-header { margin-bottom: 18px; }
+    .page-title { font-size: 20px; }
+    .page-subtitle { font-size: 12px; line-height: 1.45; }
+    .filter-row input { width: 100%; }
+    .filter-row select, .filter-row input { flex: 1 1 100%; }
+    .data-table { min-width: 760px; }
+    .auth-actions { flex-direction: row; }
+    .auth-btn { flex: 1 1 0; }
+    .calendar-week-shell { margin: 0 -4px; padding-bottom: 4px; }
+    .calendar-week-board { min-width: 860px; grid-template-columns: 64px repeat(5, minmax(150px, 1fr)); }
+    .calendar-week-time, .calendar-week-cell { min-height: 68px; }
+    .backup-actions { flex-direction: column; }
+    .backup-actions .btn-add { width: 100%; text-align: center; }
+    .success-toast { right: 14px; left: 14px; bottom: 14px; text-align: center; }
+  }
+
+  @media (max-width: 560px) {
+    .metrics-row, .three-col, .countdown { grid-template-columns: 1fr; }
+    .metric-value { font-size: 22px; }
+    .legend { gap: 10px; }
+    .nav-item { padding: 9px 10px; font-size: 12px; }
+    .form-group input, .form-group select, .form-group textarea { font-size: 16px; }
+    .btn-submit, .btn-add, .calendar-nav-btn, .btn-danger { min-height: 42px; }
+    .carrera-grid, .metas-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-title">RB / 42K 2028</div>
+      <div class="logo-sub">Plan 15/10/25 → 14/08/28</div>
+    </div>
+    <nav>
+      <div class="nav-item active" onclick="showPage('resumen')"><span class="nav-icon">⬡</span><span>Resumen</span></div>
+      <div class="nav-item" onclick="showPage('calorias')"><span class="nav-icon">◈</span><span>Calorías</span></div>
+      <div class="nav-item" onclick="showPage('peso')"><span class="nav-icon">◉</span><span>Peso</span></div>
+      <div class="nav-item" onclick="showPage('ejercicio')"><span class="nav-icon">▷</span><span>Ejercicio</span></div>
+      <div class="nav-item" onclick="showPage('registro')"><span class="nav-icon">✦</span><span>Registrar día</span></div>
+      <div class="nav-item" onclick="showPage('historial')"><span class="nav-icon">≡</span><span>Historial</span></div>
+      <div class="nav-item" onclick="showPage('metas')"><span class="nav-icon">◇</span><span>Metas 2026</span></div>
+      <div class="nav-item" onclick="showPage('proyecto42k')"><span class="nav-icon">▣</span><span>Proyecto 42k 2028</span></div>
+      <div class="nav-item" onclick="showPage('calendario')"><span class="nav-icon">▦</span><span>Calendario</span></div>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="days-counter">
+        <div class="days-num" id="sb-dias">154</div>
+        <div class="days-label">días registrados</div>
+        <div class="progress-outer"><div class="progress-inner" id="sb-progress" style="width:15%"></div></div>
+        <div class="days-label" style="margin-top:6px" id="sb-pct">15% hacia el 42k</div>
+        <div class="days-label sync-offline" style="margin-top:8px" id="sync-status">Modo local</div>
+        <div class="auth-panel">
+          <div class="auth-status" id="auth-status">Acceso privado</div>
+          <div class="auth-email" id="auth-email">IngresÃ¡ con Google para usar la nube solo con tu cuenta.</div>
+          <div class="auth-actions">
+            <button class="auth-btn" id="auth-signin-btn" onclick="signInWithGoogle()">Entrar con Google</button>
+            <button class="auth-btn secondary" id="auth-signout-btn" onclick="signOutTracker()" style="display:none">Salir</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ===== RESUMEN ===== -->
+    <div class="page active" id="page-resumen">
+      <div class="page-header">
+        <div class="page-title">Resumen general</div>
+        <div class="page-subtitle">Proyecto Maratón 42k · 14 de agosto 2028</div>
+      </div>
+      <div class="countdown" id="countdown-row"></div>
+      <div class="metrics-row" id="resumen-metrics"></div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">Distribución de ejercicio</div>
+          <div class="legend" id="pie-legend"></div>
+          <div class="chart-wrap" style="height:200px"><canvas id="pieChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Plan 100% — días verdes vs rojos</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#00d4a0"></div>Verde (SI)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff5c5c"></div>Rojo (NO)</div>
+          </div>
+          <div class="chart-wrap" style="height:200px"><canvas id="planChart"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Últimos 30 días — calorías</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#4f9eff"></div>Quemadas</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff5c5c"></div>Consumidas</div>
+        </div>
+        <div class="chart-wrap" style="height:200px"><canvas id="recentCalChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ===== CALORIAS ===== -->
+    <div class="page" id="page-calorias">
+      <div class="page-header">
+        <div class="page-title">Calorías</div>
+        <div class="page-subtitle">Consumidas, quemadas y déficit acumulado</div>
+      </div>
+      <div class="metrics-row" id="cal-metrics"></div>
+      <div class="card">
+        <div class="card-title">Evolución de calorías (todos los días)</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#4f9eff"></div>Quemadas</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff5c5c"></div>Consumidas</div>
+        </div>
+        <div class="chart-wrap" style="height:240px"><canvas id="calChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Déficit diario (verde = superávit calórico negativo)</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="deficitChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Déficit acumulado desde el inicio</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="deficitAcumChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ===== PESO ===== -->
+    <div class="page" id="page-peso">
+      <div class="page-header">
+        <div class="page-title">Peso</div>
+        <div class="page-subtitle">Seguimiento real vs predicción</div>
+      </div>
+      <div class="metrics-row" id="peso-metrics"></div>
+      <div class="card">
+        <div class="card-title">Peso real vs predicción</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#4f9eff"></div>Peso real (kg)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#7a7f94;border:1px dashed #7a7f94"></div>Predicción</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#00d4a0"></div>Meta final (75kg)</div>
+        </div>
+        <div class="chart-wrap" style="height:280px"><canvas id="pesoChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Historial de pesadas</div>
+        <div id="peso-historial"></div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em">Agregar nueva pesada</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <input type="date" id="new-peso-fecha" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:Sora,sans-serif;font-size:13px;padding:8px 12px;outline:none">
+            <input type="number" step="0.1" id="new-peso-val" placeholder="Peso en kg (ej: 94.5)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:Sora,sans-serif;font-size:13px;padding:8px 12px;outline:none;width:200px">
+            <button onclick="guardarPeso()" style="background:var(--accent);color:#0d0f14;border:none;border-radius:var(--radius-sm);padding:8px 20px;font-family:Sora,sans-serif;font-size:13px;font-weight:600;cursor:pointer">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EJERCICIO ===== -->
+    <div class="page" id="page-ejercicio">
+      <div class="page-header">
+        <div class="page-title">Ejercicio & Carreras</div>
+        <div class="page-subtitle">Progreso hacia el maratón</div>
+      </div>
+      <div class="metrics-row" id="ej-metrics"></div>
+      <div class="card">
+        <div class="card-title">Carreras oficiales</div>
+        <div class="carrera-grid" id="carrera-grid"></div>
+        <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">Agregar carrera</div>
+          <div class="carrera-form">
+            <div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Nombre</div>
+              <input type="text" id="c-nombre" placeholder="ej: La Plata 21k">
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Distancia</div>
+              <select id="c-dist">
+                <option value="5">5 km</option>
+                <option value="10">10 km</option>
+                <option value="21">21 km (media)</option>
+                <option value="42">42 km (maratón)</option>
+                <option value="otro">Otra</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Fecha</div>
+              <input type="date" id="c-fecha">
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Tiempo (hh:mm:ss) — opcional</div>
+              <input type="text" id="c-tiempo" placeholder="ej: 1:06:30">
+            </div>
+            <div class="carrera-form-full">
+              <button onclick="agregarCarrera()" style="background:var(--accent);color:#0d0f14;border:none;padding:10px 20px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer;font-family:'Sora',sans-serif">Guardar carrera</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">Evolución de ritmo medio (min/km)</div>
+          <div class="chart-wrap" style="height:220px"><canvas id="ritmoChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Km por semana</div>
+          <div class="chart-wrap" style="height:220px"><canvas id="kmSemChart"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Minutos entrenados por semana</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="minSemChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ===== REGISTRAR DÍA ===== -->
+    <div class="page" id="page-registro">
+      <div class="page-header">
+        <div class="page-title">Registrar día</div>
+        <div class="page-subtitle">Agregá tu entrada diaria al tracker</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Nuevo registro</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" id="r-fecha">
+          </div>
+          <div class="form-group">
+            <label>¿Plan 100? (sin azúcar ni harinas)</label>
+            <select id="r-plan">
+              <option value="SI">SI — Día verde ✓</option>
+              <option value="NO">NO — Día rojo ✗</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Ejercicio del día</label>
+            <select id="r-ejercicio">
+              <option>GIMNASIO</option>
+              <option>CAMINATA</option>
+              <option>CORRIDA</option>
+              <option>FONDO</option>
+              <option>FÚTBOL</option>
+              <option>DESCANSO</option>
+              <option>OTRO</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Ejercicio 2 (si hubo)</label>
+            <select id="r-ejercicio-2">
+              <option value="">Sin segundo ejercicio</option>
+              <option>GIMNASIO</option>
+              <option>CAMINATA</option>
+              <option>CORRIDA</option>
+              <option>FONDO</option>
+              <option>FÚTBOL</option>
+              <option>DESCANSO</option>
+              <option>OTRO</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tiempo de entrenamiento (min)</label>
+            <input type="number" id="r-tiempo" placeholder="ej: 45">
+          </div>
+          <div class="form-group">
+            <label>Calorías consumidas</label>
+            <input type="number" id="r-cal-c" placeholder="ej: 1800" oninput="updateDeficitPreview()">
+          </div>
+          <div class="form-group">
+            <label>Calorías quemadas</label>
+            <input type="number" id="r-cal-q" placeholder="ej: 2300" oninput="updateDeficitPreview()">
+          </div>
+          <div class="form-group">
+            <label>Distancia (km) — si aplica</label>
+            <input type="number" step="0.01" id="r-dist" placeholder="ej: 5.20">
+          </div>
+          <div class="form-group">
+            <label>Ritmo medio (min/km) — si aplica</label>
+            <input type="number" step="0.01" id="r-ritmo" placeholder="ej: 6.45">
+          </div>
+          <div class="form-group form-full">
+            <label>Comidas clave del día</label>
+            <textarea id="r-comidas" placeholder="ej: Bife, ensalada, yogur natural, café..."></textarea>
+          </div>
+          <div class="form-group form-full">
+            <label>Desliz o comentarios</label>
+            <textarea id="r-comentario" placeholder="ej: Fui al cumple de Juan, comí empanadas..."></textarea>
+          </div>
+        </div>
+        <div class="deficit-preview" id="deficit-preview"></div>
+        <button class="btn-submit" onclick="guardarDia()">Guardar día →</button>
+      </div>
+    </div>
+
+    <!-- ===== HISTORIAL ===== -->
+    <div class="page" id="page-historial">
+      <div class="page-header">
+        <div class="page-title">Historial completo</div>
+        <div class="page-subtitle">Todos los días registrados</div>
+      </div>
+      <div class="filter-row">
+        <input type="text" id="hist-search" placeholder="Buscar..." oninput="renderHistorial()">
+        <select id="hist-plan" onchange="renderHistorial()">
+          <option value="">Todos los días</option>
+          <option value="SI">Solo verdes</option>
+          <option value="NO">Solo rojos</option>
+        </select>
+        <select id="hist-ejercicio" onchange="renderHistorial()">
+          <option value="">Todos los ejercicios</option>
+          <option>GIMNASIO</option><option>CAMINATA</option><option>CORRIDA</option>
+          <option>FONDO</option><option>FÚTBOL</option><option>DESCANSO</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="card-title">Importar / Exportar</div>
+        <div class="backup-note">Exportá un respaldo completo del tracker en formato JSON. Después podés importarlo en esta misma app para recuperar o mover todos tus datos a otra PC, navegador o cuenta sincronizada.</div>
+        <div class="backup-actions">
+          <button class="btn-add" onclick="exportTrackerBackup()">Exportar respaldo</button>
+          <button class="btn-add" onclick="document.getElementById('backup-file-input').click()">Importar respaldo</button>
+          <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none" onchange="handleBackupImport(event)">
+        </div>
+      </div>
+      <div class="card" style="overflow-x:auto;padding:0">
+        <table class="data-table" id="historial-table">
+          <thead>
+            <tr>
+              <th>Día</th><th>Fecha</th><th>Plan</th><th>Ejercicio</th>
+              <th>Consumidas</th><th>Quemadas</th><th>Déficit</th><th>Km</th><th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="historial-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== METAS ===== -->
+    <div class="page" id="page-metas">
+      <div class="page-header">
+        <div class="page-title">Metas 2026</div>
+        <div class="page-subtitle">Click para marcar como cumplidas</div>
+      </div>
+      <div class="metas-grid" id="metas-grid"></div>
+      <div class="card" style="margin-top:18px">
+        <div class="card-title">Libros leídos</div>
+        <div class="libros-list" id="libros-list"></div>
+        <div class="add-libro-row">
+          <input type="text" id="libro-input" placeholder="Título del libro...">
+          <button class="btn-add" onclick="agregarLibro()">+ Agregar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-proyecto42k">
+      <div class="page-header">
+        <div class="page-title">Proyecto 42k 2028</div>
+        <div class="page-subtitle">Fases de preparación hacia la maratón del 14 de septiembre de 2028</div>
+      </div>
+      <div class="project-hero">
+        <div class="card">
+          <div class="card-title">Ruta completa</div>
+          <div class="metrics-row" id="project-metrics" style="margin-bottom:0"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Vista rápida</div>
+          <div class="project-summary-list" id="project-summary"></div>
+        </div>
+      </div>
+      <div class="project-phase-grid" id="project-phase-grid"></div>
+    </div>
+
+    <div class="page" id="page-calendario">
+      <div class="page-header">
+        <div class="page-title">Horario semanal</div>
+        <div class="page-subtitle">Organizá materias, trabajo, entrenos y rutinas fijas con repetición semanal</div>
+      </div>
+      <div class="calendar-side-card">
+        <div class="card-title">Agregar o editar bloque</div>
+        <div class="form-grid">
+          <input type="hidden" id="cal-event-id">
+          <div class="form-group">
+            <label>Título</label>
+            <input type="text" id="cal-title" placeholder="ej: Facultad, gym, trabajo...">
+          </div>
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" id="cal-date">
+          </div>
+          <div class="form-group">
+            <label>Hora inicio</label>
+            <input type="time" id="cal-start">
+          </div>
+          <div class="form-group">
+            <label>Hora fin</label>
+            <input type="time" id="cal-end">
+          </div>
+          <div class="form-group">
+            <label>Color</label>
+            <select id="cal-color">
+              <option value="#4f9eff">Azul</option>
+              <option value="#00d4a0">Verde</option>
+              <option value="#ffa040">Naranja</option>
+              <option value="#ff5c5c">Rojo</option>
+              <option value="#a78bfa">Violeta</option>
+              <option value="#f472b6">Rosa</option>
+              <option value="#ffe600">Amarillo</option>
+              <option value="#22c55e">Lima</option>
+              <option value="#06b6d4">Cian</option>
+              <option value="#8b5cf6">Púrpura</option>
+              <option value="#ec4899">Magenta</option>
+              <option value="#f97316">Naranja fuerte</option>
+              <option value="#eab308">Mostaza</option>
+              <option value="#14b8a6">Turquesa</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Repetición</label>
+            <select id="cal-repeat" onchange="toggleCalendarRepeatUntil()">
+              <option value="none">No repetir</option>
+              <option value="weekly">Semanal</option>
+            </select>
+          </div>
+          <div class="form-group calendar-hidden" id="cal-repeat-until-wrap">
+            <label>Repetir hasta</label>
+            <input type="date" id="cal-repeat-until">
+          </div>
+          <div class="form-group form-full">
+            <label>Notas</label>
+            <textarea id="cal-notes" placeholder="Detalles, aula, recordatorios o lo que necesites..."></textarea>
+          </div>
+        </div>
+        <button class="btn-submit" onclick="saveCalendarEvent()">Guardar bloque</button>
+        <button class="calendar-nav-btn calendar-hidden" id="cal-cancel-btn" onclick="resetCalendarForm()" style="width:100%;margin-top:10px">Cancelar edición</button>
+      </div>
+      <div class="calendar-week-card">
+        <div class="calendar-toolbar" style="margin-bottom:14px">
+          <div>
+            <div class="card-title" style="margin-bottom:6px">Horario semanal</div>
+            <div class="page-subtitle">Vista tipo cursada para la semana del día seleccionado</div>
+          </div>
+        </div>
+        <div class="calendar-week-shell">
+          <div class="calendar-week-board" id="calendar-week-board"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="success-toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  DATA SEED — from Excel
+// ============================================================
+const SEED_DIAS = [{"dia_num":"Dia 1","fecha":"2025-10-15","dia_semana":"MIÉRCOLES","plan_100":"SI","comentario":"- Dificil, facultad feria.","comidas":"-Granola, bife, ensalada.","ejercicio":"GIMNASIO","tiempo_min":48.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":893.0,"cal_quemadas":2200.0,"deficit":1307.0},{"dia_num":"Dia 2","fecha":"2025-10-16","dia_semana":"JUEVES","plan_100":"SI","comentario":null,"comidas":"-Bife, huevo revuelto, arroz","ejercicio":"CAMINATA","tiempo_min":60.0,"distancia_km":6.35,"ritmo_medio":9.45,"cal_consumidas":1242.0,"cal_quemadas":2245.0,"deficit":1003.0},{"dia_num":"Dia 3","fecha":"2025-10-17","dia_semana":"VIERNES","plan_100":"SI","comentario":null,"comidas":"- Bife, pasta de mani, ensalada","ejercicio":"GIMNASIO","tiempo_min":45.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1307.0,"cal_quemadas":2209.0,"deficit":902.0},{"dia_num":"Dia 4","fecha":"2025-10-18","dia_semana":"SÁBADO","plan_100":"SI","comentario":"-Dificilisimo fui de juan","comidas":"-Yogurt natural,huevo,salchica","ejercicio":"FONDO","tiempo_min":38.07,"distancia_km":5.0,"ritmo_medio":7.62,"cal_consumidas":1209.0,"cal_quemadas":2891.0,"deficit":1682.0},{"dia_num":"Dia 5","fecha":"2025-10-19","dia_semana":"DOMINGO","plan_100":"NO","comentario":"-Salame de chocolate, papas mayonesa.","comidas":"- Asado, ensalada, chorizo","ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1865.0,"cal_quemadas":1818.0,"deficit":-47.0},{"dia_num":"Dia 6","fecha":"2025-10-20","dia_semana":"LUNES","plan_100":"SI","comentario":null,"comidas":"-Pecho de cerdo, mani, frutos.","ejercicio":"GIMNASIO","tiempo_min":50.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1643.0,"cal_quemadas":2199.0,"deficit":556.0},{"dia_num":"Dia 7","fecha":"2025-10-21","dia_semana":"MARTES","plan_100":"SI","comentario":null,"comidas":"-Crema mani, jugo exprimido","ejercicio":"FUTBOL","tiempo_min":60.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":921.0,"cal_quemadas":2808.0,"deficit":1887.0},{"dia_num":"Dia 8","fecha":"2025-10-22","dia_semana":"MIÉRCOLES","plan_100":"SI","comentario":null,"comidas":"-Huevo, bife, paty.","ejercicio":"GIMNASIO","tiempo_min":45.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1947.0,"cal_quemadas":2245.0,"deficit":298.0},{"dia_num":"Dia 9","fecha":"2025-10-23","dia_semana":"JUEVES","plan_100":"SI","comentario":null,"comidas":"-Bife, zanahoria,yogurt.","ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1420.0,"cal_quemadas":1914.0,"deficit":494.0},{"dia_num":"Dia 10","fecha":"2025-10-24","dia_semana":"VIERNES","plan_100":"SI","comentario":null,"comidas":"-Sanguche vegano, bife, huevo.","ejercicio":"GIMNASIO","tiempo_min":43.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1614.0,"cal_quemadas":3336.0,"deficit":1722.0},{"dia_num":"Dia 11","fecha":"2025-10-25","dia_semana":"SÁBADO","plan_100":"SI","comentario":"-Casi me compro una empanada en lo de juan","comidas":"- Omellete, salchica, coca zero","ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1506.0,"cal_quemadas":2399.0,"deficit":893.0},{"dia_num":"Dia 12","fecha":"2025-10-26","dia_semana":"DOMINGO","plan_100":"NO","comentario":"Canelones (harina dudosa)","comidas":"-Canelones, yogurt, mani","ejercicio":"FONDO","tiempo_min":37.51,"distancia_km":5.0,"ritmo_medio":7.57,"cal_consumidas":1533.0,"cal_quemadas":3212.0,"deficit":1679.0},{"dia_num":"Dia 13","fecha":"2025-10-27","dia_semana":"LUNES","plan_100":"NO","comentario":"-Tarta de atun","comidas":"-Pechuga de pollo, tomate.","ejercicio":"GIMNASIO","tiempo_min":56.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1512.0,"cal_quemadas":3185.0,"deficit":1673.0},{"dia_num":"Dia 14","fecha":"2025-10-28","dia_semana":"MARTES","plan_100":"SI","comentario":null,"comidas":"- Postre mani,banana,chocolate sin azucar.","ejercicio":"CORRIDA","tiempo_min":30.0,"distancia_km":3.56,"ritmo_medio":8.43,"cal_consumidas":1096.0,"cal_quemadas":2939.0,"deficit":1843.0},{"dia_num":"Dia 15","fecha":"2025-10-29","dia_semana":"MIÉRCOLES","plan_100":"SI","comentario":"-Agregue bici 1 hora","comidas":"-Pechugas de pollo, cafe, huevos","ejercicio":"GIMNASIO","tiempo_min":115.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1550.0,"cal_quemadas":3612.0,"deficit":2062.0},{"dia_num":"Dia 16","fecha":"2025-10-30","dia_semana":"JUEVES","plan_100":"NO","comentario":"-Medio sacramento de jyq","comidas":"-Pollo,huevo, salchicha.","ejercicio":"CAMINATA","tiempo_min":60.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1619.0,"cal_quemadas":2568.0,"deficit":949.0},{"dia_num":"Dia 17","fecha":"2025-10-31","dia_semana":"VIERNES","plan_100":"NO","comentario":"-Sang.Pollo juan.","comidas":"x","ejercicio":"GIMNASIO","tiempo_min":104.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2104.0,"cal_quemadas":3369.0,"deficit":1265.0},{"dia_num":"Dia 18","fecha":"2025-11-01","dia_semana":"SÁBADO","plan_100":"NO","comentario":"-Sang.Pollo juan.","comidas":"x","ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1135.0,"cal_quemadas":2433.0,"deficit":1298.0},{"dia_num":"Dia 19","fecha":"2025-11-02","dia_semana":"DOMINGO","plan_100":"SI","comentario":null,"comidas":"- Tira asado, ensalada","ejercicio":"FONDO","tiempo_min":46.03,"distancia_km":6.01,"ritmo_medio":7.66,"cal_consumidas":1915.0,"cal_quemadas":3024.0,"deficit":1109.0},{"dia_num":"Dia 20","fecha":"2025-11-03","dia_semana":"LUNES","plan_100":"SI","comentario":"- Nueva rutina","comidas":"- Ensalada, jugo de naranja,bife","ejercicio":"GIMNASIO","tiempo_min":77.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1109.0,"cal_quemadas":3291.0,"deficit":2182.0},{"dia_num":"Dia 21","fecha":"2025-11-04","dia_semana":"MARTES","plan_100":"SI","comentario":null,"comidas":"-Huevo revuelto, bife, cafe.","ejercicio":"CORRIDA","tiempo_min":30.03,"distancia_km":3.32,"ritmo_medio":9.05,"cal_consumidas":1864.0,"cal_quemadas":2663.0,"deficit":799.0},{"dia_num":"Dia 22","fecha":"2025-11-05","dia_semana":"MIÉRCOLES","plan_100":"SI","comentario":null,"comidas":"Paty casero, omellete zanahoria","ejercicio":"GIMNASIO","tiempo_min":50.33,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1837.0,"cal_quemadas":3064.0,"deficit":1227.0},{"dia_num":"Dia 23","fecha":"2025-11-06","dia_semana":"JUEVES","plan_100":"SI","comentario":"-Caminata + 1 hora bici (28km)","comidas":"Omellete super","ejercicio":"CAMINATA","tiempo_min":73.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1474.0,"cal_quemadas":3195.0,"deficit":1721.0},{"dia_num":"Dia 24","fecha":"2025-11-07","dia_semana":"VIERNES","plan_100":"SI","comentario":null,"comidas":null,"ejercicio":"GIMNASIO","tiempo_min":40.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2357.0,"cal_quemadas":2939.0,"deficit":582.0},{"dia_num":"Dia 25","fecha":"2025-11-08","dia_semana":"SÁBADO","plan_100":"NO","comentario":"- Carrefour pringles","comidas":"-Mani","ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1734.0,"cal_quemadas":2534.0,"deficit":800.0},{"dia_num":"Dia 26","fecha":"2025-11-09","dia_semana":"DOMINGO","plan_100":"SI","comentario":"-Me senti muy comodo","comidas":"Calzoni harina intregral","ejercicio":"FONDO","tiempo_min":45.0,"distancia_km":6.25,"ritmo_medio":7.2,"cal_consumidas":1600.0,"cal_quemadas":3113.0,"deficit":1513.0},{"dia_num":"Dia 27","fecha":"2025-11-10","dia_semana":"LUNES","plan_100":"NO","comentario":"- Calzoni harina normal","comidas":"-Omellete, crema mani","ejercicio":"GIMNASIO","tiempo_min":37.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1817.0,"cal_quemadas":2747.0,"deficit":930.0},{"dia_num":"Dia 28","fecha":"2025-11-11","dia_semana":"MARTES","plan_100":"SI","comentario":null,"comidas":"-Omellete,yogurt","ejercicio":"CORRIDA","tiempo_min":25.0,"distancia_km":3.47,"ritmo_medio":7.2,"cal_consumidas":2139.0,"cal_quemadas":2877.0,"deficit":738.0},{"dia_num":"Dia 29","fecha":"2025-11-12","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":null,"comidas":"-Sang juan, alf, mila","ejercicio":"GIMNASIO","tiempo_min":64.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2827.0,"cal_quemadas":3060.0,"deficit":233.0},{"dia_num":"Dia 30","fecha":"2025-11-13","dia_semana":"JUEVES","plan_100":"SI","comentario":"-bici 1 hora","comidas":null,"ejercicio":"CAMINATA","tiempo_min":60.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1372.0,"cal_quemadas":3050.0,"deficit":1678.0},{"dia_num":"Dia 31","fecha":"2025-11-14","dia_semana":"VIERNES","plan_100":"NO","comentario":"- Tarta","comidas":null,"ejercicio":"GIMNASIO","tiempo_min":68.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1052.0,"cal_quemadas":3298.0,"deficit":2246.0},{"dia_num":"Dia 32","fecha":"2025-11-15","dia_semana":"SÁBADO","plan_100":"NO","comentario":"-Pizza","comidas":null,"ejercicio":"FUTBOL","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2639.0,"cal_quemadas":3397.0,"deficit":758.0},{"dia_num":"Dia 33","fecha":"2025-11-16","dia_semana":"DOMINGO","plan_100":"SI","comentario":null,"comidas":"-Matambre a la pizza","ejercicio":"FONDO","tiempo_min":51.0,"distancia_km":7.1,"ritmo_medio":7.18,"cal_consumidas":1702.0,"cal_quemadas":2925.0,"deficit":1223.0},{"dia_num":"Dia 34","fecha":"2025-11-17","dia_semana":"LUNES","plan_100":"SI","comentario":null,"comidas":"-Matambre a la pizza","ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1562.0,"cal_quemadas":2362.0,"deficit":800.0},{"dia_num":"Dia 35","fecha":"2025-11-18","dia_semana":"MARTES","plan_100":"NO","comentario":"-Pizza","comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1840.0,"cal_quemadas":2361.0,"deficit":521.0},{"dia_num":"Dia 36","fecha":"2025-11-19","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":"-Hamburgesa","comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2206.0,"cal_quemadas":2315.0,"deficit":109.0},{"dia_num":"Dia 37","fecha":"2025-11-20","dia_semana":"JUEVES","plan_100":"SI","comentario":null,"comidas":"-Omellete Tarta zapallito","ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2301.0,"cal_quemadas":2334.0,"deficit":33.0},{"dia_num":"Dia 38","fecha":"2025-11-21","dia_semana":"VIERNES","plan_100":"NO","comentario":"-Cumple lu","comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":3500.0,"cal_quemadas":2322.0,"deficit":-1178.0},{"dia_num":"Dia 39","fecha":"2025-11-22","dia_semana":"SÁBADO","plan_100":"SI","comentario":null,"comidas":"- Tarta integral","ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1753.0,"cal_quemadas":2349.0,"deficit":596.0},{"dia_num":"Dia 40","fecha":"2025-11-23","dia_semana":"DOMINGO","plan_100":"NO","comentario":"-Cumple maca","comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":3500.0,"cal_quemadas":2324.0,"deficit":-1176.0},{"dia_num":"Dia 41","fecha":"2025-11-24","dia_semana":"LUNES","plan_100":"SI","comentario":null,"comidas":"-Tacos integral","ejercicio":"FUTBOL","tiempo_min":60.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1337.0,"cal_quemadas":2800.0,"deficit":1463.0},{"dia_num":"Dia 42","fecha":"2025-11-25","dia_semana":"MARTES","plan_100":"SI","comentario":null,"comidas":"-Carne picada, tarta","ejercicio":"CORRIDA","tiempo_min":14.28,"distancia_km":2.34,"ritmo_medio":6.18,"cal_consumidas":1408.0,"cal_quemadas":2793.0,"deficit":1385.0},{"dia_num":"Dia 43","fecha":"2025-11-26","dia_semana":"MIÉRCOLES","plan_100":"SI","comentario":null,"comidas":"Bife, huevo revuelto","ejercicio":"GIMNASIO","tiempo_min":62.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1982.0,"cal_quemadas":2930.0,"deficit":948.0},{"dia_num":"Dia 44","fecha":"2025-11-27","dia_semana":"JUEVES","plan_100":"SI","comentario":null,"comidas":"-Tarta","ejercicio":"CAMINATA","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1357.0,"cal_quemadas":2337.0,"deficit":980.0},{"dia_num":"Dia 45","fecha":"2025-11-28","dia_semana":"VIERNES","plan_100":"SI","comentario":null,"comidas":"-Tarta","ejercicio":"GIMNASIO","tiempo_min":42.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2000.0,"cal_quemadas":2912.0,"deficit":912.0},{"dia_num":"Dia 46","fecha":"2025-11-29","dia_semana":"SÁBADO","plan_100":"NO","comentario":"-Luiggi","comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1990.0,"cal_quemadas":2282.0,"deficit":292.0},{"dia_num":"Dia 47","fecha":"2025-11-30","dia_semana":"DOMINGO","plan_100":"NO","comentario":"-Ñoquis","comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1534.0,"cal_quemadas":2254.0,"deficit":720.0},{"dia_num":"Dia 48","fecha":"2025-12-01","dia_semana":"LUNES","plan_100":"SI","comentario":null,"comidas":"-Bife, omellet","ejercicio":"GIMNASIO","tiempo_min":64.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1309.0,"cal_quemadas":2997.0,"deficit":1688.0},{"dia_num":"Dia 49","fecha":"2025-12-02","dia_semana":"MARTES","plan_100":"SI","comentario":"-1 HORA eliptica","comidas":"-Tarta jyq omellet","ejercicio":"CORRIDA","tiempo_min":67.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1700.0,"cal_quemadas":3203.0,"deficit":1503.0},{"dia_num":"Dia 50","fecha":"2025-12-03","dia_semana":"MIÉRCOLES","plan_100":"SI","comentario":"-20 min eliptica","comidas":"-Ensalada tarta","ejercicio":"GIMNASIO","tiempo_min":62.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1558.0,"cal_quemadas":3217.0,"deficit":1659.0},{"dia_num":"Dia 51","fecha":"2025-12-04","dia_semana":"JUEVES","plan_100":"SI","comentario":"AYUNO 20 HORAS","comidas":"-Integral tarta.","ejercicio":"CAMINATA","tiempo_min":64.0,"distancia_km":5.34,"ritmo_medio":11.99,"cal_consumidas":964.0,"cal_quemadas":2748.0,"deficit":1784.0},{"dia_num":"Dia 52","fecha":"2025-12-05","dia_semana":"VIERNES","plan_100":"NO","comentario":"KFC","comidas":"-Tarta integral","ejercicio":"GIMNASIO","tiempo_min":73.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2000.0,"cal_quemadas":3160.0,"deficit":1160.0},{"dia_num":"Dia 53","fecha":"2025-12-06","dia_semana":"SÁBADO","plan_100":"SI","comentario":null,"comidas":"-Ensalada","ejercicio":"FONDO","tiempo_min":50.0,"distancia_km":7.0,"ritmo_medio":7.14,"cal_consumidas":1492.0,"cal_quemadas":3544.0,"deficit":2052.0},{"dia_num":"Dia 54","fecha":"2025-12-07","dia_semana":"DOMINGO","plan_100":"NO","comentario":"-Cumple juanpi","comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":3050.0,"cal_quemadas":2337.0,"deficit":-713.0},{"dia_num":"Dia 55","fecha":"2025-12-08","dia_semana":"LUNES","plan_100":"SI","comentario":"-Feriado no gym","comidas":"-Carne","ejercicio":"CAMINATA","tiempo_min":43.0,"distancia_km":3.64,"ritmo_medio":11.81,"cal_consumidas":1812.0,"cal_quemadas":2600.0,"deficit":788.0},{"dia_num":"Dia 56","fecha":"2025-12-09","dia_semana":"MARTES","plan_100":"SI","comentario":"-30 minutos eliptica, 20 caminata","comidas":"-Matambre cerdo","ejercicio":"CORRIDA","tiempo_min":47.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1421.0,"cal_quemadas":2694.0,"deficit":1273.0},{"dia_num":"Dia 57","fecha":"2025-12-10","dia_semana":"MIÉRCOLES","plan_100":"SI","comentario":null,"comidas":"-Tarta integral","ejercicio":"GIMNASIO","tiempo_min":48.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1749.0,"cal_quemadas":2716.0,"deficit":967.0},{"dia_num":"Dia 58","fecha":"2025-12-11","dia_semana":"JUEVES","plan_100":"SI","comentario":null,"comidas":null,"ejercicio":"CAMINATA","tiempo_min":45.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1835.0,"cal_quemadas":2944.0,"deficit":1109.0},{"dia_num":"Dia 59","fecha":"2025-12-12","dia_semana":"VIERNES","plan_100":"NO","comentario":"-Pizza","comidas":null,"ejercicio":"GIMNASIO","tiempo_min":80.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2460.0,"cal_quemadas":3122.0,"deficit":662.0},{"dia_num":"Dia 60","fecha":"2025-12-13","dia_semana":"SÁBADO","plan_100":"NO","comentario":"-Empanadas","comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1200.0,"cal_quemadas":2290.0,"deficit":1090.0},{"dia_num":"Dia 61","fecha":"2025-12-14","dia_semana":"DOMINGO","plan_100":"SI","comentario":"-Me senti pesado no pude hacer fondo","comidas":"- Canelon integral","ejercicio":"CORRIDA","tiempo_min":72.0,"distancia_km":6.7,"ritmo_medio":10.75,"cal_consumidas":1900.0,"cal_quemadas":3220.0,"deficit":1320.0},{"dia_num":"Dia 62","fecha":"2025-12-15","dia_semana":"LUNES","plan_100":"NO","comentario":"-Alfajor","comidas":"-Bife ensalada","ejercicio":"GIMNASIO","tiempo_min":80.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1736.0,"cal_quemadas":2886.0,"deficit":1150.0},{"dia_num":"Dia 63","fecha":"2025-12-16","dia_semana":"MARTES","plan_100":"SI","comentario":"-Eliptica Bici","comidas":"-Bife ensalada","ejercicio":"CAMINATA","tiempo_min":50.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1259.0,"cal_quemadas":3234.0,"deficit":1975.0},{"dia_num":"Dia 64","fecha":"2025-12-17","dia_semana":"MIÉRCOLES","plan_100":"SI","comentario":"-Burga","comidas":"-Pollo ensalada","ejercicio":"GIMNASIO","tiempo_min":73.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2340.0,"cal_quemadas":3200.0,"deficit":860.0},{"dia_num":"Dia 65","fecha":"2025-12-18","dia_semana":"JUEVES","plan_100":"SI","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2094.0,"cal_quemadas":2328.0,"deficit":234.0},{"dia_num":"Dia 66","fecha":"2025-12-19","dia_semana":"VIERNES","plan_100":"NO","comentario":"-Cumple gordo","comidas":null,"ejercicio":"GIMNASIO","tiempo_min":50.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":3000.0,"cal_quemadas":2968.0,"deficit":-32.0},{"dia_num":"Dia 67","fecha":"2025-12-20","dia_semana":"SÁBADO","plan_100":"NO","comentario":"-Cumple delfi","comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":3000.0,"cal_quemadas":2511.0,"deficit":-489.0},{"dia_num":"Dia 68","fecha":"2025-12-21","dia_semana":"DOMINGO","plan_100":"NO","comentario":"-TOLOSA CORRE","comidas":null,"ejercicio":"FONDO","tiempo_min":68.0,"distancia_km":10.0,"ritmo_medio":6.8,"cal_consumidas":1320.0,"cal_quemadas":3564.0,"deficit":2244.0},{"dia_num":"Dia 69","fecha":"2025-12-22","dia_semana":"LUNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2200.0,"cal_quemadas":2528.0,"deficit":328.0},{"dia_num":"Dia 70","fecha":"2025-12-23","dia_semana":"MARTES","plan_100":"NO","comentario":"-Eliptica","comidas":null,"ejercicio":"CAMINATA","tiempo_min":30.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1320.0,"cal_quemadas":2686.0,"deficit":1366.0},{"dia_num":"Dia 71","fecha":"2025-12-24","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":"Navidad","comidas":null,"ejercicio":"CAMINATA","tiempo_min":40.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":3000.0,"cal_quemadas":2867.0,"deficit":-133.0},{"dia_num":"Dia 72","fecha":"2025-12-25","dia_semana":"JUEVES","plan_100":"NO","comentario":"Navidad","comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":3200.0,"cal_quemadas":2526.0,"deficit":-674.0},{"dia_num":"Dia 73","fecha":"2025-12-26","dia_semana":"VIERNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1000.0,"cal_quemadas":2319.0,"deficit":1319.0},{"dia_num":"Dia 74","fecha":"2025-12-27","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2000.0,"cal_quemadas":2349.0,"deficit":349.0},{"dia_num":"Dia 75","fecha":"2025-12-28","dia_semana":"DOMINGO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1400.0,"cal_quemadas":2379.0,"deficit":979.0},{"dia_num":"Dia 76","fecha":"2025-12-29","dia_semana":"LUNES","plan_100":"SI","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1200.0,"cal_quemadas":2301.0,"deficit":1101.0},{"dia_num":"Dia 77","fecha":"2025-12-30","dia_semana":"MARTES","plan_100":"SI","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":919.0,"cal_quemadas":2271.0,"deficit":1352.0},{"dia_num":"Dia 78","fecha":"2025-12-31","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":3099.0,"cal_quemadas":2331.0,"deficit":-768.0},{"dia_num":"Dia 79","fecha":"2026-01-01","dia_semana":"JUEVES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2371.0,"cal_quemadas":2500.0,"deficit":129.0},{"dia_num":"Dia 80","fecha":"2026-01-02","dia_semana":"VIERNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1651.0,"cal_quemadas":2893.0,"deficit":1242.0},{"dia_num":"Dia 81","fecha":"2026-01-03","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2500.0,"cal_quemadas":2533.0,"deficit":33.0},{"dia_num":"Dia 82","fecha":"2026-01-04","dia_semana":"DOMINGO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2347.0,"cal_quemadas":2234.0,"deficit":-113.0},{"dia_num":"Dia 83","fecha":"2026-01-05","dia_semana":"LUNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1500.0,"cal_quemadas":2321.0,"deficit":821.0},{"dia_num":"Dia 84","fecha":"2026-01-06","dia_semana":"MARTES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1500.0,"cal_quemadas":2377.0,"deficit":877.0},{"dia_num":"Dia 85","fecha":"2026-01-07","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1200.0,"cal_quemadas":2596.0,"deficit":1396.0},{"dia_num":"Dia 86","fecha":"2026-01-08","dia_semana":"JUEVES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2000.0,"cal_quemadas":2301.0,"deficit":301.0},{"dia_num":"Dia 87","fecha":"2026-01-09","dia_semana":"VIERNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2521.0,"cal_quemadas":2294.0,"deficit":-227.0},{"dia_num":"Dia 88","fecha":"2026-01-10","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1242.0,"cal_quemadas":2333.0,"deficit":1091.0},{"dia_num":"Dia 89","fecha":"2026-01-11","dia_semana":"DOMINGO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1500.0,"cal_quemadas":2766.0,"deficit":1266.0},{"dia_num":"Dia 90","fecha":"2026-01-12","dia_semana":"LUNES","plan_100":"SI","comentario":"Nueva rutina","comidas":null,"ejercicio":"GIMNASIO","tiempo_min":60.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1551.0,"cal_quemadas":2906.0,"deficit":1355.0},{"dia_num":"Dia 91","fecha":"2026-01-13","dia_semana":"MARTES","plan_100":"SI","comentario":null,"comidas":null,"ejercicio":"CAMINATA","tiempo_min":54.0,"distancia_km":4.7,"ritmo_medio":11.49,"cal_consumidas":2000.0,"cal_quemadas":2705.0,"deficit":705.0},{"dia_num":"Dia 92","fecha":"2026-01-14","dia_semana":"MIÉRCOLES","plan_100":"SI","comentario":null,"comidas":null,"ejercicio":"CAMINATA","tiempo_min":30.0,"distancia_km":2.4,"ritmo_medio":12.5,"cal_consumidas":2700.0,"cal_quemadas":2669.0,"deficit":-31.0},{"dia_num":"Dia 93","fecha":"2026-01-15","dia_semana":"JUEVES","plan_100":"SI","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2040.0,"cal_quemadas":2269.0,"deficit":229.0},{"dia_num":"Dia 94","fecha":"2026-01-16","dia_semana":"VIERNES","plan_100":"SI","comentario":null,"comidas":null,"ejercicio":"GIMNASIO","tiempo_min":50.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1545.0,"cal_quemadas":2891.0,"deficit":1346.0},{"dia_num":"Dia 95","fecha":"2026-01-17","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":2900.0,"cal_quemadas":2364.0,"deficit":-536.0},{"dia_num":"Dia 96","fecha":"2026-01-18","dia_semana":"DOMINGO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 97","fecha":"2026-01-19","dia_semana":"LUNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"GIMNASIO","tiempo_min":43.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 98","fecha":"2026-01-20","dia_semana":"MARTES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 99","fecha":"2026-01-21","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 100","fecha":"2026-01-22","dia_semana":"JUEVES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"CAMINATA","tiempo_min":65.0,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 101","fecha":"2026-01-23","dia_semana":"VIERNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 102","fecha":"2026-01-24","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 103","fecha":"2026-01-25","dia_semana":"DOMINGO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 104","fecha":"2026-01-26","dia_semana":"LUNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 105","fecha":"2026-01-27","dia_semana":"MARTES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 106","fecha":"2026-01-28","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 107","fecha":"2026-01-29","dia_semana":"JUEVES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 108","fecha":"2026-01-30","dia_semana":"VIERNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 109","fecha":"2026-01-31","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 110","fecha":"2026-02-01","dia_semana":"DOMINGO","plan_100":"SI","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 111","fecha":"2026-02-02","dia_semana":"LUNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"GIMNASIO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 112","fecha":"2026-02-03","dia_semana":"MARTES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 113","fecha":"2026-02-04","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 114","fecha":"2026-02-05","dia_semana":"JUEVES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 115","fecha":"2026-02-06","dia_semana":"VIERNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 116","fecha":"2026-02-07","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 117","fecha":"2026-02-08","dia_semana":"DOMINGO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 118","fecha":"2026-02-09","dia_semana":"LUNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 119","fecha":"2026-02-10","dia_semana":"MARTES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 120","fecha":"2026-02-11","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 121","fecha":"2026-02-12","dia_semana":"JUEVES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 122","fecha":"2026-02-13","dia_semana":"VIERNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 123","fecha":"2026-02-14","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 124","fecha":"2026-02-15","dia_semana":"DOMINGO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 125","fecha":"2026-02-16","dia_semana":"LUNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 126","fecha":"2026-02-17","dia_semana":"MARTES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 127","fecha":"2026-02-18","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 128","fecha":"2026-02-19","dia_semana":"JUEVES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 129","fecha":"2026-02-20","dia_semana":"VIERNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 130","fecha":"2026-02-21","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 131","fecha":"2026-02-22","dia_semana":"DOMINGO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 132","fecha":"2026-02-23","dia_semana":"LUNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 133","fecha":"2026-02-24","dia_semana":"MARTES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 134","fecha":"2026-02-25","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 135","fecha":"2026-02-26","dia_semana":"JUEVES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 136","fecha":"2026-02-27","dia_semana":"VIERNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 137","fecha":"2026-02-28","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 138","fecha":"2026-03-01","dia_semana":"DOMINGO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 139","fecha":"2026-03-02","dia_semana":"LUNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 140","fecha":"2026-03-03","dia_semana":"MARTES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 141","fecha":"2026-03-04","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 142","fecha":"2026-03-05","dia_semana":"JUEVES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 143","fecha":"2026-03-06","dia_semana":"VIERNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 144","fecha":"2026-03-07","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 145","fecha":"2026-03-08","dia_semana":"DOMINGO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 146","fecha":"2026-03-09","dia_semana":"LUNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 147","fecha":"2026-03-10","dia_semana":"MARTES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 148","fecha":"2026-03-11","dia_semana":"MIÉRCOLES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 149","fecha":"2026-03-12","dia_semana":"JUEVES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 150","fecha":"2026-03-13","dia_semana":"VIERNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 151","fecha":"2026-03-14","dia_semana":"SÁBADO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 152","fecha":"2026-03-15","dia_semana":"DOMINGO","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"FUTBOL","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 153","fecha":"2026-03-16","dia_semana":"LUNES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0},{"dia_num":"Dia 154","fecha":"2026-03-17","dia_semana":"MARTES","plan_100":"NO","comentario":null,"comidas":null,"ejercicio":"DESCANSO","tiempo_min":null,"distancia_km":null,"ritmo_medio":null,"cal_consumidas":1800.0,"cal_quemadas":2306.0,"deficit":506.0}];
+
+const SEED_PESO = [{"fecha":"2025-10-14","peso_predicho":98.0,"peso_real":98.0},{"fecha":"2025-10-24","peso_predicho":96.0,"peso_real":96.0},{"fecha":"2025-11-08","peso_predicho":94.5,"peso_real":95.0},{"fecha":"2025-11-23","peso_predicho":93.1,"peso_real":94.8},{"fecha":"2025-12-07","peso_predicho":91.6,"peso_real":94.0},{"fecha":"2025-12-21","peso_predicho":90.2,"peso_real":94.0},{"fecha":"2026-01-04","peso_predicho":88.7,"peso_real":95.5},{"fecha":"2026-01-18","peso_predicho":87.3,"peso_real":96.0},{"fecha":"2026-02-01","peso_predicho":85.8,"peso_real":97.0},{"fecha":"2026-02-15","peso_predicho":84.4,"peso_real":98.0},{"fecha":"2026-03-01","peso_predicho":82.9,"peso_real":97.0},{"fecha":"2026-03-15","peso_predicho":81.5,"peso_real":99.0},{"fecha":"2026-03-29","peso_predicho":80.0,"peso_real":null},{"fecha":"2026-04-12","peso_predicho":78.5,"peso_real":null},{"fecha":"2026-04-26","peso_predicho":77.1,"peso_real":null},{"fecha":"2026-05-10","peso_predicho":75.6,"peso_real":null},{"fecha":"2026-05-24","peso_predicho":74.2,"peso_real":null}];
+
+const SEED_CARRERAS = [{"NOMBRE":"UNLP","DISTANCIA(KM)":5,"RITMO_FMT":"7:19","TOTAL_FMT":"36:35","FECHA":"2024-10-06"},{"NOMBRE":"RACING","DISTANCIA(KM)":5,"RITMO_FMT":"6:53","TOTAL_FMT":"34:25","FECHA":"2024-11-17"},{"NOMBRE":"REPÚBLICA","DISTANCIA(KM)":10,"RITMO_FMT":"6:37","TOTAL_FMT":"1:06:16","FECHA":"2025-04-27"},{"NOMBRE":"TOLOSA CORRE","DISTANCIA(KM)":10,"RITMO_FMT":"6:55","TOTAL_FMT":"1:09:04","FECHA":"2025-12-21"},{"NOMBRE":"UNLP 2","DISTANCIA(KM)":10,"RITMO_FMT":null,"TOTAL_FMT":null,"FECHA":"2026-03-29"}];
+
+const METAS_DATA = {
+  "Personales": ["Bajar a 75kg","Sacar registro","No dejar cosas a la mitad","Mes sin harinas/azúcar","Bajar a 6hs celular"],
+  "Educación": ["Aprobar cursadas anual","Aprobar 5 finales","Mantener estudio constante","Leer 30 libros"],
+  "Deportivas": ["Primera media maratón","10km en menos de 1h10","Mantener gym"],
+  "Laboral": ["Crear Parallax","Empezar a vender"],
+  "Financiero": ["Ahorrar mensualmente","Abrir caja de inversiones","Aprender trading"]
+};
+
+const PROJECT_42K_PHASES = [
+  {
+    year: 'Año 1',
+    phase: 'Subfase 1.1',
+    start: '2025-10-13',
+    end: '2026-04-12',
+    focus: 'Base aeróbica, adaptación al hábito y primera construcción de tirada larga.',
+    notes: 'Se prioriza continuidad, técnica simple y sumar kilómetros sin apurar ritmos.',
+    week: [
+      ['Lunes', 'Gym'],
+      ['Martes', 'Carrera suave de 30 a 40 min'],
+      ['Miércoles', 'Gym'],
+      ['Jueves', 'Bici o caminata 45 min'],
+      ['Viernes', 'Gym'],
+      ['Sábado', 'Tirada larga aumentando 1 km cada 2 semanas'],
+      ['Domingo', 'Descanso completo']
+    ]
+  },
+  {
+    year: 'Año 1',
+    phase: 'Subfase 1.2',
+    start: '2026-04-13',
+    end: '2026-10-13',
+    focus: 'Más volumen semanal y primeros cambios de ritmo controlados.',
+    notes: 'Acá aparece el fartlek y la carrera suave se estira para consolidar resistencia.',
+    week: [
+      ['Lunes', 'Gym'],
+      ['Martes', 'Carrera suave de 45 a 50 min'],
+      ['Miércoles', 'Gym'],
+      ['Jueves', 'Fartlek'],
+      ['Viernes', 'Gym'],
+      ['Sábado', 'Tirada larga aumentando 1 km cada 2 semanas'],
+      ['Domingo', 'Descanso completo']
+    ]
+  },
+  {
+    year: 'Año 2',
+    phase: 'Subfase 2.1',
+    start: '2026-10-14',
+    end: '2027-04-12',
+    focus: 'Entrada al trabajo específico con series, tempo y tiradas largas más estables.',
+    notes: 'Según la imagen, en esta etapa ya entran series de 800 m, tempo y base larga de 15 a 18 km.',
+    week: [
+      ['Lunes', 'Gym'],
+      ['Martes', 'Series: 6 x 800 m rápido + 400 m de recuperación'],
+      ['Miércoles', 'Descanso o cross training'],
+      ['Jueves', 'Carrera a ritmo tempo de 25 min'],
+      ['Viernes', 'Gym'],
+      ['Sábado', 'Tirada larga base de 15 a 18 km y 21 km una vez al mes'],
+      ['Domingo', 'Descanso completo']
+    ]
+  },
+  {
+    year: 'Año 2',
+    phase: 'Subfase 2.2',
+    start: '2027-04-13',
+    end: '2027-10-12',
+    focus: 'Consolidación del bloque específico y más tolerancia a ritmos de calidad.',
+    notes: 'La imagen muestra el mismo esquema semanal que en 2.1, así que lo dejé consistente en ambas subfases.',
+    week: [
+      ['Lunes', 'Gym'],
+      ['Martes', 'Series: 6 x 800 m rápido + 400 m de recuperación'],
+      ['Miércoles', 'Descanso o cross training'],
+      ['Jueves', 'Carrera a ritmo tempo de 25 min'],
+      ['Viernes', 'Gym'],
+      ['Sábado', 'Tirada larga base de 15 a 18 km y 21 km una vez al mes'],
+      ['Domingo', 'Descanso completo']
+    ]
+  },
+  {
+    year: 'Año 3',
+    phase: 'Subfase 3.1',
+    start: '2027-10-13',
+    end: '2028-08-27',
+    focus: 'Bloque maratón específico con ritmos controlados, recuperación y tiradas muy largas.',
+    notes: 'Es el tramo más parecido a una preparación maratón completa: se trabaja ritmo maratón y tiradas hasta 32 o 34 km.',
+    week: [
+      ['Lunes', 'Gym'],
+      ['Martes', 'Series largas: 4 x 1600 m o 3 x 2000 m a ritmo control'],
+      ['Miércoles', 'Carrera de recuperación de 1 h'],
+      ['Jueves', 'Ritmo maratón de 8 a 10 km'],
+      ['Viernes', 'Descanso'],
+      ['Sábado', 'Tirada larga progresiva hasta 32 a 34 km'],
+      ['Domingo', 'Descanso completo']
+    ]
+  },
+  {
+    year: 'Año 3',
+    phase: 'Subfase 3.2',
+    start: '2028-08-28',
+    end: '2028-09-14',
+    focus: 'Taper final para llegar fresco a la maratón.',
+    notes: 'Se baja el volumen por semanas y la última semana queda enfocada en recuperar piernas y mantener soltura.',
+    week: [
+      ['3 semanas antes', 'Bajar el volumen al 75%'],
+      ['2 semanas antes', 'Bajar el volumen al 50% y sostener una tirada de 12 km'],
+      ['Lunes', 'Descanso'],
+      ['Martes', 'Trote suave de 20 min'],
+      ['Miércoles', 'Descanso'],
+      ['Jueves', '20 min de trote con aceleraciones'],
+      ['Viernes y sábado', 'Descanso']
+    ]
+  }
+];
+
+// ============================================================
+//  STORAGE
+// ============================================================
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCkKpOtFrQwmwYhJ_2_Hel0NLjc111HPnM",
+  authDomain: "rb-tracker-1e27a.firebaseapp.com",
+  projectId: "rb-tracker-1e27a",
+  storageBucket: "rb-tracker-1e27a.firebasestorage.app",
+  messagingSenderId: "584037784069",
+  appId: "1:584037784069:web:1dae8f27458f4c49011a6c"
+};
+
+const ALLOWED_EMAIL = 'billianiramiro00@gmail.com';
+const SYNC_KEYS = [
+  ['rb42k_dias', SEED_DIAS],
+  ['rb42k_peso', SEED_PESO],
+  ['rb42k_metas', {}],
+  ['rb42k_libros', ["Can't Hurt Me - David Goggins"]],
+  ['rb42k_carreras', []],
+  ['rb42k_calendar_events', []]
+];
+
+const SYNC_ENABLED = ['http:', 'https:'].includes(window.location.protocol);
+let syncState = { mode: 'local' };
+let firebaseDb = null;
+let firebaseReady = false;
+let firebaseAuth = null;
+let firebaseUser = null;
+let firebaseUnsubscribers = [];
+
+function cloneValue(value) {
+  return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function setSyncStatus(mode, detail) {
+  syncState = { mode, detail: detail || '' };
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  el.classList.remove('sync-online', 'sync-offline');
+  if (mode === 'shared') {
+    el.classList.add('sync-online');
+    el.textContent = detail || 'Sincronizado';
+  } else {
+    el.classList.add('sync-offline');
+    el.textContent = detail || 'Modo local';
+  }
+}
+
+function updateAuthUI() {
+  const statusEl = document.getElementById('auth-status');
+  const emailEl = document.getElementById('auth-email');
+  const signInBtn = document.getElementById('auth-signin-btn');
+  const signOutBtn = document.getElementById('auth-signout-btn');
+  if (!statusEl || !emailEl || !signInBtn || !signOutBtn) return;
+
+  if (!SYNC_ENABLED) {
+    statusEl.textContent = 'Modo local';
+    emailEl.textContent = 'AbrÃ­ el tracker desde tu link para activar sincronizaciÃ³n.';
+    signInBtn.style.display = 'none';
+    signOutBtn.style.display = 'none';
+    return;
+  }
+
+  if (!firebaseUser) {
+    statusEl.textContent = 'Acceso privado';
+    emailEl.textContent = 'IngresÃ¡ con Google para usar la nube solo con tu cuenta.';
+    signInBtn.style.display = '';
+    signOutBtn.style.display = 'none';
+    return;
+  }
+
+  if ((firebaseUser.email || '').toLowerCase() === ALLOWED_EMAIL) {
+    statusEl.textContent = 'Cuenta autorizada';
+    emailEl.textContent = firebaseUser.email;
+    signInBtn.style.display = 'none';
+    signOutBtn.style.display = '';
+    return;
+  }
+
+  statusEl.textContent = 'Cuenta no autorizada';
+  emailEl.textContent = firebaseUser.email || 'Cuenta desconocida';
+  signInBtn.style.display = 'none';
+  signOutBtn.style.display = '';
+}
+
+function clearFirebaseListeners() {
+  firebaseUnsubscribers.forEach((unsubscribe) => {
+    try { if (typeof unsubscribe === 'function') unsubscribe(); } catch (e) {}
+  });
+  firebaseUnsubscribers = [];
+  firebaseReady = false;
+}
+
+function isAuthorizedUser(user) {
+  return !!user && (user.email || '').toLowerCase() === ALLOWED_EMAIL;
+}
+
+function signInWithGoogle() {
+  if (!firebaseAuth) return;
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  firebaseAuth.signInWithPopup(provider).catch((error) => {
+    if (error && (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request')) {
+      firebaseAuth.signInWithRedirect(provider);
+      return;
+    }
+    toast('No se pudo iniciar sesiÃ³n');
+  });
+}
+
+function signOutTracker() {
+  if (!firebaseAuth) return;
+  firebaseAuth.signOut();
+}
+
+function localGet(key, fallbackValue) {
+  const stored = localStorage.getItem(key);
+  if (stored == null) {
+    if (fallbackValue === undefined) return null;
+    localStorage.setItem(key, JSON.stringify(fallbackValue));
+    return cloneValue(fallbackValue);
+  }
+  try {
+    return JSON.parse(stored);
+  } catch (e) {
+    return cloneValue(fallbackValue);
+  }
+}
+
+function localSet(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function loadStore(key, fallbackValue) {
+  if (!SYNC_ENABLED) setSyncStatus('local', 'Modo local');
+  return localGet(key, fallbackValue);
+}
+
+function saveStore(key, value) {
+  localSet(key, value);
+  if (firebaseReady && firebaseDb) {
+    firebaseDb.collection('tracker_store').doc(key).set({
+      value,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).then(()=>{
+      setSyncStatus('shared', 'Firebase conectada');
+    }).catch(()=>{
+      setSyncStatus('local', 'Guardado local temporal');
+    });
+  }
+}
+
+function getTrackerBackupPayload() {
+  return {
+    version: 1,
+    exported_at: new Date().toISOString(),
+    data: {
+      rb42k_dias: loadData(),
+      rb42k_peso: loadPeso(),
+      rb42k_metas: loadMetas(),
+      rb42k_libros: loadLibros(),
+      rb42k_carreras: loadCarreras(),
+      rb42k_calendar_events: loadCalendarEvents()
+    }
+  };
+}
+
+function exportTrackerBackup() {
+  const payload = getTrackerBackupPayload();
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const day = new Date().toISOString().split('T')[0];
+  a.href = url;
+  a.download = `rb-tracker-backup-${day}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast('Respaldo exportado');
+}
+
+function applyImportedBackup(payload) {
+  const source = payload && payload.data ? payload.data : payload;
+  if (!source || typeof source !== 'object') throw new Error('invalid');
+
+  if (source.rb42k_dias !== undefined) saveData(source.rb42k_dias);
+  if (source.rb42k_peso !== undefined) savePeso(source.rb42k_peso);
+  if (source.rb42k_metas !== undefined) saveMetas(source.rb42k_metas);
+  if (source.rb42k_libros !== undefined) saveLibros(source.rb42k_libros);
+  if (source.rb42k_carreras !== undefined) saveCarreras(source.rb42k_carreras);
+  if (source.rb42k_calendar_events !== undefined) saveCalendarEvents(source.rb42k_calendar_events);
+
+  rerenderAllPages();
+  resetCalendarForm();
+}
+
+function handleBackupImport(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      applyImportedBackup(parsed);
+      toast('Respaldo importado');
+    } catch (e) {
+      toast('Archivo inválido');
+    } finally {
+      event.target.value = '';
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function rerenderAllPages() {
+  const dias = loadData();
+  renderResumen(dias);
+  updateSidebar(dias);
+  if (document.getElementById('page-calorias').classList.contains('active')) renderCalorias(dias);
+  if (document.getElementById('page-peso').classList.contains('active')) renderPeso();
+  if (document.getElementById('page-ejercicio').classList.contains('active')) renderEjercicio(dias);
+  if (document.getElementById('page-historial').classList.contains('active')) renderHistorial();
+  if (document.getElementById('page-metas').classList.contains('active')) renderMetas();
+  if (document.getElementById('page-proyecto42k').classList.contains('active')) renderProyecto42k();
+  if (document.getElementById('page-calendario').classList.contains('active')) renderCalendar();
+}
+
+function initializeFirebaseSync() {
+  if (!SYNC_ENABLED || typeof firebase === 'undefined') {
+    setSyncStatus('local', 'Modo local');
+    updateAuthUI();
+    return;
+  }
+
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    firebaseAuth = firebase.auth();
+    firebaseDb = firebase.firestore();
+    updateAuthUI();
+
+    firebaseAuth.onAuthStateChanged((user) => {
+      firebaseUser = user;
+      clearFirebaseListeners();
+      updateAuthUI();
+
+      if (!user) {
+        setSyncStatus('local', 'IngresÃ¡ con Google');
+        return;
+      }
+
+      if (!isAuthorizedUser(user)) {
+        setSyncStatus('local', 'Cuenta no autorizada');
+        toast('Esta cuenta no estÃ¡ habilitada para este tracker');
+        return;
+      }
+
+      firebaseReady = true;
+      setSyncStatus('shared', 'Firebase conectando...');
+
+      SYNC_KEYS.forEach(([key, fallbackValue]) => {
+        const unsubscribe = firebaseDb.collection('tracker_store').doc(key).onSnapshot((doc) => {
+          if (doc.exists && doc.data() && doc.data().value !== undefined) {
+            localSet(key, doc.data().value);
+            setSyncStatus('shared', 'Firebase conectada');
+            rerenderAllPages();
+            return;
+          }
+
+          const initialValue = localGet(key, fallbackValue);
+          firebaseDb.collection('tracker_store').doc(key).set({
+            value: initialValue,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true }).then(()=>{
+            setSyncStatus('shared', 'Firebase conectada');
+          });
+        }, () => {
+          setSyncStatus('local', 'Error de Firebase');
+        });
+        firebaseUnsubscribers.push(unsubscribe);
+      });
+    });
+  } catch (e) {
+    firebaseReady = false;
+    setSyncStatus('local', 'Firebase no disponible');
+    updateAuthUI();
+  }
+}
+
+function loadData() { return loadStore('rb42k_dias', SEED_DIAS); }
+function saveData(dias) { saveStore('rb42k_dias', dias); }
+
+function loadPeso() { return loadStore('rb42k_peso', SEED_PESO); }
+function savePeso(p) { saveStore('rb42k_peso', p); }
+
+function loadMetas() { return loadStore('rb42k_metas', {}); }
+function saveMetas(m) { saveStore('rb42k_metas', m); }
+
+function loadLibros() {
+  const stored = localStorage.getItem('rb42k_libros');
+  if (!stored) return ['Can\'t Hurt Me — David Goggins'];
+  return JSON.parse(stored);
+}
+function saveLibros(l) { localStorage.setItem('rb42k_libros', JSON.stringify(l)); }
+function loadLibros() { return loadStore('rb42k_libros', ["Can't Hurt Me - David Goggins"]); }
+function saveLibros(l) { saveStore('rb42k_libros', l); }
+function loadCalendarEvents() { return loadStore('rb42k_calendar_events', []); }
+function saveCalendarEvents(events) { saveStore('rb42k_calendar_events', events); }
+
+// ============================================================
+//  HELPERS
+// ============================================================
+let charts = {};
+let calendarViewDate = new Date();
+let calendarSelectedDate = new Date().toISOString().split('T')[0];
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function fmt(n) { return n == null ? '—' : Math.round(n).toLocaleString('es-AR'); }
+function fmtDec(n,d=1) { return n == null ? '—' : parseFloat(n).toFixed(d); }
+function fmtDate(s) {
+  if(!s) return '—';
+  const d = new Date(s+'T12:00:00'); 
+  return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+}
+function fmtDateLong(s) {
+  if(!s) return '—';
+  const d = new Date(s+'T12:00:00');
+  return d.toLocaleDateString('es-AR',{day:'numeric',month:'long',year:'numeric'});
+}
+function diffDaysInclusive(start, end) {
+  const ms = new Date(end+'T12:00:00') - new Date(start+'T12:00:00');
+  return Math.floor(ms / 86400000) + 1;
+}
+function getEjerciciosDia(d) {
+  return [d.ejercicio, d.ejercicio_2].filter(Boolean);
+}
+function formatEjerciciosDia(d) {
+  const ejercicios = getEjerciciosDia(d);
+  return ejercicios.length ? ejercicios.join(' + ') : '—';
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display='block';
+  setTimeout(()=>t.style.display='none',2500);
+}
+
+function getWeekKey(fecha) {
+  const d = new Date(fecha+'T12:00:00');
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day===0 ? -6 : 1);
+  const mon = new Date(d.setDate(diff));
+  return mon.toISOString().split('T')[0];
+}
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  const navs = ['resumen','calorias','peso','ejercicio','registro','historial','metas','proyecto42k','calendario'];
+  const idx = navs.indexOf(id);
+  document.querySelectorAll('.nav-item')[idx].classList.add('active');
+  renderPage(id);
+}
+
+function renderPage(id) {
+  const dias = loadData();
+  if(id==='resumen') renderResumen(dias);
+  else if(id==='calorias') renderCalorias(dias);
+  else if(id==='peso') renderPeso();
+  else if(id==='ejercicio') renderEjercicio(dias);
+  else if(id==='historial') renderHistorial();
+  else if(id==='metas') renderMetas();
+  else if(id==='proyecto42k') renderProyecto42k();
+  else if(id==='calendario') renderCalendar();
+}
+
+// ============================================================
+//  COUNTDOWN
+// ============================================================
+function renderCountdown() {
+  const target = new Date('2028-08-14T07:00:00');
+  const now = new Date();
+  const diff = target - now;
+  const days = Math.floor(diff/86400000);
+  const months = Math.floor(days/30.44);
+  const weeks = Math.floor(days/7);
+  const years = Math.floor(days/365.25);
+  document.getElementById('countdown-row').innerHTML = `
+    <div class="countdown-item"><div class="countdown-num">${years}</div><div class="countdown-unit">Años</div></div>
+    <div class="countdown-item"><div class="countdown-num">${months}</div><div class="countdown-unit">Meses</div></div>
+    <div class="countdown-item"><div class="countdown-num">${weeks}</div><div class="countdown-unit">Semanas</div></div>
+    <div class="countdown-item"><div class="countdown-num">${days}</div><div class="countdown-unit">Días</div></div>
+  `;
+}
+
+// ============================================================
+//  SIDEBAR
+// ============================================================
+function updateSidebar(dias) {
+  const total = 1034; // días oct2025 → ago2028
+  const n = dias.length;
+  const pct = Math.round(n/total*100);
+  document.getElementById('sb-dias').textContent = n;
+  document.getElementById('sb-progress').style.width = pct+'%';
+  document.getElementById('sb-pct').textContent = pct+'% hacia el 42k';
+}
+
+// ============================================================
+//  RESUMEN
+// ============================================================
+function renderResumen(dias) {
+  renderCountdown();
+  updateSidebar(dias);
+  const verdes = dias.filter(d=>d.plan_100==='SI').length;
+  const rojos = dias.filter(d=>d.plan_100==='NO').length;
+  const kmTotal = dias.reduce((s,d)=>s+(d.distancia_km||0),0);
+  const defProm = dias.filter(d=>d.deficit!=null).reduce((s,d,_,a)=>s+d.deficit/a.filter(x=>x.deficit!=null).length,0);
+
+  document.getElementById('resumen-metrics').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Días registrados</div><div class="metric-value blue">${dias.length}</div><div class="metric-sub">de 1034 totales</div></div>
+    <div class="metric-card"><div class="metric-label">Días verdes</div><div class="metric-value green">${verdes}</div><div class="metric-sub">${Math.round(verdes/dias.length*100)}% del total</div></div>
+    <div class="metric-card"><div class="metric-label">Déficit promedio</div><div class="metric-value ${defProm>=0?'green':'red'}">${defProm>=0?'+':''}${Math.round(defProm)}</div><div class="metric-sub">kcal/día</div></div>
+    <div class="metric-card"><div class="metric-label">Km acumulados</div><div class="metric-value">${fmtDec(kmTotal,1)}</div><div class="metric-sub">km totales</div></div>
+  `;
+
+  // Pie ejercicio
+  const ejCounts = {};
+  dias.forEach(d=>{ ejCounts[d.ejercicio]=(ejCounts[d.ejercicio]||0)+1; });
+  const ejColors = {GIMNASIO:'#4f9eff',CAMINATA:'#00d4a0',FONDO:'#ffa040',CORRIDA:'#a78bfa',FUTBOL:'#f472b6',DESCANSO:'#4b5563',OTRO:'#9ca3af'};
+  const ejLabels = Object.keys(ejCounts);
+  const ejVals = ejLabels.map(k=>ejCounts[k]);
+  document.getElementById('pie-legend').innerHTML = ejLabels.map(k=>`<div class="legend-item"><div class="legend-dot" style="background:${ejColors[k]||'#888'}"></div>${k} (${ejCounts[k]})</div>`).join('');
+
+  destroyChart('pie'); destroyChart('plan'); destroyChart('recentCal');
+  charts['pie'] = new Chart(document.getElementById('pieChart'),{
+    type:'doughnut',
+    data:{labels:ejLabels,datasets:[{data:ejVals,backgroundColor:ejLabels.map(k=>ejColors[k]||'#888'),borderWidth:1,borderColor:'#13151c'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'60%'}
+  });
+  charts['plan'] = new Chart(document.getElementById('planChart'),{
+    type:'doughnut',
+    data:{labels:['Verdes','Rojos'],datasets:[{data:[verdes,rojos],backgroundColor:['#00d4a0','#ff5c5c'],borderWidth:1,borderColor:'#13151c'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'65%'}
+  });
+
+  // Recent 30 cal
+  const recent = dias.filter(d=>d.cal_consumidas).slice(-30);
+  charts['recentCal'] = new Chart(document.getElementById('recentCalChart'),{
+    type:'line',
+    data:{
+      labels:recent.map(d=>fmtDate(d.fecha)),
+      datasets:[
+        {label:'Quemadas',data:recent.map(d=>d.cal_quemadas),borderColor:'#4f9eff',backgroundColor:'rgba(79,158,255,0.08)',tension:0.3,pointRadius:2,fill:true},
+        {label:'Consumidas',data:recent.map(d=>d.cal_consumidas),borderColor:'#ff5c5c',backgroundColor:'rgba(255,92,92,0.08)',tension:0.3,pointRadius:2,fill:true}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10}}}}}
+  });
+}
+
+// ============================================================
+//  CALORIAS
+// ============================================================
+function renderCalorias(dias) {
+  const withCal = dias.filter(d=>d.cal_consumidas!=null);
+  const avgC = withCal.reduce((s,d)=>s+d.cal_consumidas,0)/withCal.length;
+  const avgQ = withCal.reduce((s,d)=>s+d.cal_quemadas,0)/withCal.length;
+  const avgD = withCal.reduce((s,d)=>s+d.deficit,0)/withCal.length;
+  const defAcum = withCal.reduce((s,d)=>s+d.deficit,0);
+
+  document.getElementById('cal-metrics').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Prom. consumidas</div><div class="metric-value">${Math.round(avgC)}</div><div class="metric-sub">kcal/día</div></div>
+    <div class="metric-card"><div class="metric-label">Prom. quemadas</div><div class="metric-value blue">${Math.round(avgQ)}</div><div class="metric-sub">kcal/día</div></div>
+    <div class="metric-card"><div class="metric-label">Déficit promedio</div><div class="metric-value green">+${Math.round(avgD)}</div><div class="metric-sub">kcal/día</div></div>
+    <div class="metric-card"><div class="metric-label">Déficit acumulado</div><div class="metric-value green">${Math.round(defAcum/1000).toLocaleString('es-AR')}k</div><div class="metric-sub">≈ ${Math.round(defAcum/7700)} kg teóricos</div></div>
+  `;
+
+  destroyChart('cal'); destroyChart('deficit'); destroyChart('deficitAcum');
+  const step = Math.max(1,Math.floor(withCal.length/60));
+  const sample = withCal.filter((_,i)=>i%step===0);
+
+  charts['cal'] = new Chart(document.getElementById('calChart'),{
+    type:'line',
+    data:{labels:sample.map(d=>fmtDate(d.fecha)),datasets:[
+      {label:'Quemadas',data:sample.map(d=>d.cal_quemadas),borderColor:'#4f9eff',backgroundColor:'rgba(79,158,255,0.06)',tension:0.3,pointRadius:1.5,fill:true},
+      {label:'Consumidas',data:sample.map(d=>d.cal_consumidas),borderColor:'#ff5c5c',backgroundColor:'rgba(255,92,92,0.06)',tension:0.3,pointRadius:1.5,fill:true}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:12}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10}}}}}
+  });
+
+  charts['deficit'] = new Chart(document.getElementById('deficitChart'),{
+    type:'bar',
+    data:{labels:sample.map(d=>fmtDate(d.fecha)),datasets:[{
+      label:'Déficit',
+      data:sample.map(d=>d.deficit),
+      backgroundColor:sample.map(d=>d.deficit>=0?'rgba(0,212,160,0.6)':'rgba(255,92,92,0.6)'),
+      borderRadius:2
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:12}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10}}}}}
+  });
+
+  let acum = 0;
+  const acums = withCal.map(d=>{ acum += d.deficit; return acum; });
+  const sampleAcum = withCal.filter((_,i)=>i%step===0);
+  const acumsS = sampleAcum.map((_,i)=>{ return acums[i*step]||acum; });
+  charts['deficitAcum'] = new Chart(document.getElementById('deficitAcumChart'),{
+    type:'line',
+    data:{labels:sampleAcum.map(d=>fmtDate(d.fecha)),datasets:[{label:'Déficit acumulado',data:acumsS,borderColor:'#00d4a0',backgroundColor:'rgba(0,212,160,0.08)',tension:0.3,pointRadius:1.5,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:12}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10}}}}}
+  });
+}
+
+// ============================================================
+//  PESO
+// ============================================================
+function renderPeso() {
+  const pesoData = loadPeso();
+  const conReal = pesoData.filter(p=>p.peso_real!=null);
+  const ultimo = conReal[conReal.length-1];
+  const primero = conReal[0];
+  const cambio = ultimo && primero ? (ultimo.peso_real - primero.peso_real) : 0;
+
+  // Deficit promedio ultimos 14 dias reales
+  const KG_PER_KCAL = 1 / 7700;
+  const dias = loadData();
+  const diasCal = dias.filter(d => d.deficit != null && d.cal_consumidas).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const last14 = diasCal.slice(-14);
+  const avgDeficitRaw = last14.length ? last14.reduce((s,d)=>s+d.deficit,0)/last14.length : 500;
+  const avgDeficit = Math.min(Math.max(avgDeficitRaw, 0), 700);
+  const kgPer14 = avgDeficit * KG_PER_KCAL * 14;
+
+  // Prediccion: solo el punto 14 dias despues del ultimo pesaje
+  const predLabels = [];
+  const predValues = [];
+  if (ultimo) {
+    const nextDate = new Date(ultimo.fecha + 'T12:00:00');
+    nextDate.setDate(nextDate.getDate() + 14);
+    predLabels.push(ultimo.fecha);
+    predValues.push(ultimo.peso_real);
+    predLabels.push(nextDate.toISOString().split('T')[0]);
+    predValues.push(parseFloat((ultimo.peso_real - kgPer14).toFixed(2)));
+  }
+
+  const faltanKg = ultimo ? fmtDec(ultimo.peso_real - 75, 1) : '—';
+  const avgD14display = Math.round(avgDeficit);
+
+  document.getElementById('peso-metrics').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Peso inicial</div><div class="metric-value">${primero ? primero.peso_real : '—'} kg</div><div class="metric-sub">${primero ? fmtDate(primero.fecha) : ''}</div></div>
+    <div class="metric-card"><div class="metric-label">Último registro</div><div class="metric-value ${cambio<=0?'green':'amber'}">${ultimo ? ultimo.peso_real : '—'} kg</div><div class="metric-sub">${ultimo ? fmtDate(ultimo.fecha) : ''}</div></div>
+    <div class="metric-card"><div class="metric-label">Déficit prom. (14d)</div><div class="metric-value ${avgD14display>=0?'green':'red'}">${avgD14display>=0?'+':''}${avgD14display}</div><div class="metric-sub">kcal/día · ${fmtDec(kgPer14,2)} kg/2sem</div></div>
+    <div class="metric-card"><div class="metric-label">Faltan para meta</div><div class="metric-value ${parseFloat(faltanKg)<=0?'green':'amber'}">${faltanKg} kg</div><div class="metric-sub">para llegar a 75 kg</div></div>
+  `;
+
+  const realMap = {};
+  conReal.forEach(p => { realMap[p.fecha] = p.peso_real; });
+  const predMap = {};
+  predLabels.forEach((f,i) => { predMap[f] = predValues[i]; });
+  const allDates = [...new Set([...conReal.map(p=>p.fecha), ...predLabels])].sort();
+  const realSeries = allDates.map(f => realMap[f] !== undefined ? realMap[f] : null);
+  const predSeries = allDates.map(f => predMap[f] !== undefined ? predMap[f] : null);
+  const allVals = [...realSeries, ...predSeries].filter(v=>v!==null);
+  const minY = Math.max(60, Math.floor(Math.min(...allVals)) - 3);
+  const maxY = Math.ceil(Math.max(...allVals)) + 3;
+
+  destroyChart('peso');
+  charts['peso'] = new Chart(document.getElementById('pesoChart'),{
+    type:'line',
+    data:{
+      labels: allDates.map(f=>fmtDate(f)),
+      datasets:[
+        {label:'Real',data:realSeries,borderColor:'#4f9eff',backgroundColor:'rgba(79,158,255,0.1)',tension:0.3,pointRadius:realSeries.map(v=>v!==null?5:0),pointBackgroundColor:'#4f9eff',fill:false,spanGaps:false},
+        {label:'Próxima pesada',data:predSeries,borderColor:'#a78bfa',borderDash:[4,4],tension:0,pointRadius:predSeries.map(v=>v!==null?4:0),pointBackgroundColor:'#a78bfa',fill:false,spanGaps:false},
+        {label:'Meta 75kg',data:allDates.map(()=>75),borderColor:'rgba(0,212,160,0.4)',borderDash:[2,6],pointRadius:0,fill:false}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:14}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10}},min:minY,max:maxY}}}
+  });
+
+  const hist = document.getElementById('peso-historial');
+  hist.innerHTML = conReal.map(p=>`
+    <div class="weight-row">
+      <span style="color:var(--muted)">${fmtDate(p.fecha)}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:15px">${p.peso_real} kg</span>
+      <span style="font-family:'DM Mono',monospace;font-size:12px;color:${p.peso_real<=(p.peso_predicho||999)?'#00d4a0':'#ff5c5c'}">${p.peso_real<=(p.peso_predicho||999)?'▼ En meta':'▲ Sobre meta'}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('new-peso-fecha').value = new Date().toISOString().split('T')[0];
+}
+
+function guardarPeso() {
+  const fecha = document.getElementById('new-peso-fecha').value;
+  const val = parseFloat(document.getElementById('new-peso-val').value);
+  if(!fecha || isNaN(val)) { toast('⚠ Completá fecha y peso'); return; }
+  const pesoData = loadPeso();
+  const idx = pesoData.findIndex(p=>p.fecha===fecha);
+  if(idx>=0) pesoData[idx].peso_real = val;
+  else pesoData.push({fecha, peso_predicho:null, peso_real:val});
+  pesoData.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  savePeso(pesoData);
+  document.getElementById('new-peso-val').value='';
+  renderPeso();
+  toast('✓ Peso guardado');
+}
+
+// ============================================================
+//  EJERCICIO
+// ============================================================
+function renderEjercicio(dias) {
+  const kmTotal = dias.reduce((s,d)=>s+(d.distancia_km||0),0);
+  const minTotal = dias.reduce((s,d)=>s+(d.tiempo_min||0),0);
+  const gymDias = dias.filter(d=>d.ejercicio==='GIMNASIO').length;
+  const corridaDias = dias.filter(d=>['FONDO','CORRIDA'].includes(d.ejercicio)).length;
+
+  document.getElementById('ej-metrics').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Km acumulados</div><div class="metric-value blue">${fmtDec(kmTotal,1)}</div><div class="metric-sub">corridos/caminados</div></div>
+    <div class="metric-card"><div class="metric-label">Minutos entrenados</div><div class="metric-value">${Math.round(minTotal).toLocaleString('es-AR')}</div><div class="metric-sub">${Math.round(minTotal/60)} horas</div></div>
+    <div class="metric-card"><div class="metric-label">Días de gym</div><div class="metric-value green">${gymDias}</div><div class="metric-sub">sesiones</div></div>
+    <div class="metric-card"><div class="metric-label">Salidas a correr</div><div class="metric-value amber">${corridaDias}</div><div class="metric-sub">fondos + corridas</div></div>
+  `;
+
+  // Carreras
+  renderCarrerasGrid();
+
+  // Ritmo chart
+  const conRitmo = dias.filter(d=>d.ritmo_medio && d.ritmo_medio < 12 && ['FONDO','CORRIDA'].includes(d.ejercicio));
+  destroyChart('ritmo'); destroyChart('kmSem'); destroyChart('minSem');
+
+  if(conRitmo.length > 0) {
+    charts['ritmo'] = new Chart(document.getElementById('ritmoChart'),{
+      type:'line',
+      data:{labels:conRitmo.map(d=>fmtDate(d.fecha)),datasets:[{label:'Ritmo',data:conRitmo.map(d=>d.ritmo_medio),borderColor:'#00d4a0',backgroundColor:'rgba(0,212,160,0.1)',tension:0.3,pointRadius:4,fill:true}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10},maxRotation:45}},y:{reverse:true,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10}},min:5,max:13,title:{display:true,text:'min/km',color:'#7a7f94',font:{size:10}}}}}
+    });
+  }
+
+  // Km por semana
+  const kmSem = {}; const minSem = {};
+  dias.forEach(d=>{
+    const wk = getWeekKey(d.fecha);
+    kmSem[wk] = (kmSem[wk]||0) + (d.distancia_km||0);
+    minSem[wk] = (minSem[wk]||0) + (d.tiempo_min||0);
+  });
+  const semanas = Object.keys(kmSem).sort().slice(-20);
+  charts['kmSem'] = new Chart(document.getElementById('kmSemChart'),{
+    type:'bar',
+    data:{labels:semanas.map(s=>fmtDate(s)),datasets:[{label:'Km',data:semanas.map(s=>+(kmSem[s]||0).toFixed(1)),backgroundColor:'rgba(79,158,255,0.6)',borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10},maxRotation:45}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10}}}}}
+  });
+  charts['minSem'] = new Chart(document.getElementById('minSemChart'),{
+    type:'bar',
+    data:{labels:semanas.map(s=>fmtDate(s)),datasets:[{label:'Min',data:semanas.map(s=>+(minSem[s]||0).toFixed(0)),backgroundColor:'rgba(167,139,250,0.6)',borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10},maxRotation:45}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#7a7f94',font:{size:10}}}}}
+  });
+}
+
+// ============================================================
+//  CARRERAS — localStorage + CRUD
+// ============================================================
+function loadCarreras() {
+  const seed = SEED_CARRERAS.map(c => ({
+    nombre: c.NOMBRE,
+    distancia: c['DISTANCIA(KM)'],
+    fecha: c.FECHA,
+    tiempo: c.TOTAL_FMT || null,
+    ritmo: c.RITMO_FMT || null
+  }));
+  return loadStore('rb42k_carreras', seed) || [];
+}
+function saveCarreras(data) { saveStore('rb42k_carreras', data); }
+
+function calcRitmo(tiempo, distancia) {
+  if (!tiempo || !distancia) return null;
+  const parts = tiempo.split(':').map(Number);
+  let totalMin = 0;
+  if (parts.length === 3) totalMin = parts[0]*60 + parts[1] + parts[2]/60;
+  else if (parts.length === 2) totalMin = parts[0] + parts[1]/60;
+  if (!totalMin) return null;
+  const minKm = totalMin / distancia;
+  const min = Math.floor(minKm);
+  const sec = Math.round((minKm - min) * 60);
+  return min + ':' + String(sec).padStart(2,'0');
+}
+
+function renderCarrerasGrid() {
+  const carreras = loadCarreras().sort((a,b) => a.fecha.localeCompare(b.fecha));
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('carrera-grid').innerHTML = carreras.map((c, idx) => {
+    const isPast = c.fecha < today;
+    const isNext = !isPast && carreras.filter(x => x.fecha >= today)[0] === c;
+    const cls = isNext ? 'next' : !isPast ? 'futura' : '';
+    return `<div class="carrera-card ${cls}">
+      <button class="carrera-delete" onclick="eliminarCarrera(${idx})" title="Eliminar">✕</button>
+      <div class="carrera-name">${c.nombre}</div>
+      <div class="carrera-km">${c.distancia} <span>km</span></div>
+      ${c.tiempo ? `<div class="carrera-time">${c.tiempo}</div>` : '<div style="font-size:11px;color:var(--muted);margin-top:4px">pendiente</div>'}
+      ${c.ritmo ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${c.ritmo} min/km</div>` : ''}
+      <div class="carrera-date">${fmtDate(c.fecha)}
+        ${isNext ? '<span class="badge badge-blue" style="margin-left:4px">próxima</span>' : ''}
+        ${!isPast && !isNext ? '<span class="badge" style="background:rgba(255,160,64,0.15);color:var(--amber);margin-left:4px">futura</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function agregarCarrera() {
+  const nombre = document.getElementById('c-nombre').value.trim();
+  const distRaw = document.getElementById('c-dist').value;
+  const fecha = document.getElementById('c-fecha').value;
+  const tiempo = document.getElementById('c-tiempo').value.trim();
+  if (!nombre || !fecha) { toast('⚠ Completá nombre y fecha'); return; }
+  const distancia = distRaw === 'otro' ? 0 : parseFloat(distRaw);
+  const ritmo = calcRitmo(tiempo, distancia);
+  const carreras = loadCarreras();
+  carreras.push({ nombre, distancia, fecha, tiempo: tiempo || null, ritmo });
+  carreras.sort((a,b) => a.fecha.localeCompare(b.fecha));
+  saveCarreras(carreras);
+  document.getElementById('c-nombre').value = '';
+  document.getElementById('c-fecha').value = '';
+  document.getElementById('c-tiempo').value = '';
+  renderCarrerasGrid();
+  toast('✓ Carrera guardada');
+}
+
+function eliminarCarrera(idx) {
+  if (!confirm('¿Eliminar esta carrera?')) return;
+  const carreras = loadCarreras();
+  carreras.splice(idx, 1);
+  saveCarreras(carreras);
+  renderCarrerasGrid();
+  toast('✓ Carrera eliminada');
+}
+
+// ============================================================
+//  REGISTRO
+// ============================================================
+document.getElementById('r-fecha').value = new Date().toISOString().split('T')[0];
+
+function updateDeficitPreview() {
+  const c = parseFloat(document.getElementById('r-cal-c').value)||0;
+  const q = parseFloat(document.getElementById('r-cal-q').value)||0;
+  const el = document.getElementById('deficit-preview');
+  if(c && q) {
+    const d = q-c;
+    el.style.display='block';
+    el.style.color = d>=0?'#00d4a0':'#ff5c5c';
+    el.textContent = `Déficit estimado: ${d>=0?'+':''}${d} kcal`;
+  } else { el.style.display='none'; }
+}
+
+function guardarDia() {
+  const dias = loadData();
+  const fecha = document.getElementById('r-fecha').value;
+  if(!fecha) { toast('⚠ Seleccioná una fecha'); return; }
+
+  const nuevo = {
+    dia_num: `Dia ${dias.length+1}`,
+    fecha,
+    dia_semana: new Date(fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long'}).toUpperCase(),
+    plan_100: document.getElementById('r-plan').value,
+    ejercicio: document.getElementById('r-ejercicio').value,
+    ejercicio_2: document.getElementById('r-ejercicio-2').value || null,
+    tiempo_min: parseFloat(document.getElementById('r-tiempo').value)||null,
+    distancia_km: parseFloat(document.getElementById('r-dist').value)||null,
+    ritmo_medio: parseFloat(document.getElementById('r-ritmo').value)||null,
+    cal_consumidas: parseFloat(document.getElementById('r-cal-c').value)||null,
+    cal_quemadas: parseFloat(document.getElementById('r-cal-q').value)||null,
+    deficit: (parseFloat(document.getElementById('r-cal-q').value)||0) - (parseFloat(document.getElementById('r-cal-c').value)||0) || null,
+    comidas: document.getElementById('r-comidas').value || null,
+    comentario: document.getElementById('r-comentario').value || null
+  };
+
+  const existIdx = dias.findIndex(d=>d.fecha===fecha);
+  if(existIdx>=0) {
+    dias[existIdx] = {...dias[existIdx], ...nuevo};
+    toast('✓ Día actualizado');
+  } else {
+    dias.push(nuevo);
+    dias.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    toast('✓ Día guardado');
+  }
+
+  saveData(dias);
+  document.getElementById('r-tiempo').value='';
+  document.getElementById('r-dist').value='';
+  document.getElementById('r-ritmo').value='';
+  document.getElementById('r-ejercicio-2').value='';
+  document.getElementById('r-cal-c').value='';
+  document.getElementById('r-cal-q').value='';
+  document.getElementById('r-comidas').value='';
+  document.getElementById('r-comentario').value='';
+  document.getElementById('deficit-preview').style.display='none';
+  updateSidebar(dias);
+}
+
+// ============================================================
+//  HISTORIAL
+// ============================================================
+function renderHistorial() {
+  const dias = loadData();
+  const search = document.getElementById('hist-search').value.toLowerCase();
+  const planFilter = document.getElementById('hist-plan').value;
+  const ejFilter = document.getElementById('hist-ejercicio').value;
+
+  const filtered = dias.filter(d=>{
+    if(planFilter && d.plan_100 !== planFilter) return false;
+    if(ejFilter && !getEjerciciosDia(d).includes(ejFilter)) return false;
+    if(search && !JSON.stringify(d).toLowerCase().includes(search)) return false;
+    return true;
+  }).reverse();
+
+  const tbody = document.getElementById('historial-body');
+  tbody.innerHTML = filtered.map(d=>`
+    <tr>
+      <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${d.dia_num||'—'}</span></td>
+      <td>${fmtDate(d.fecha)}</td>
+      <td><span class="badge ${d.plan_100==='SI'?'badge-green':'badge-red'}">${d.plan_100}</span></td>
+      <td>${formatEjerciciosDia(d)}</td>
+      <td>${d.cal_consumidas ? fmt(d.cal_consumidas) : '—'}</td>
+      <td>${d.cal_quemadas ? fmt(d.cal_quemadas) : '—'}</td>
+      <td style="color:${(d.deficit||0)>=0?'#00d4a0':'#ff5c5c'};font-family:'DM Mono',monospace">${d.deficit != null ? ((d.deficit>=0?'+':'')+fmt(d.deficit)) : '—'}</td>
+      <td>${d.distancia_km ? fmtDec(d.distancia_km,1)+' km' : '—'}</td>
+      <td><button class="btn-danger" onclick="deleteDia('${d.fecha}')">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function deleteDia(fecha) {
+  if(!confirm('¿Eliminar el día '+fmtDate(fecha)+'?')) return;
+  const dias = loadData().filter(d=>d.fecha!==fecha);
+  saveData(dias);
+  renderHistorial();
+  updateSidebar(dias);
+  toast('Día eliminado');
+}
+
+// ============================================================
+//  METAS
+// ============================================================
+function renderMetas() {
+  const saved = loadMetas();
+  const grid = document.getElementById('metas-grid');
+  grid.innerHTML = Object.entries(METAS_DATA).map(([cat, items])=>`
+    <div class="meta-col">
+      <div class="meta-col-title">${cat}</div>
+      ${items.map(item=>{
+        const key = cat+'__'+item;
+        const done = saved[key]||false;
+        return `<div class="meta-item" onclick="toggleMeta('${key}')">
+          <div class="meta-check ${done?'done':''}"></div>
+          <div class="meta-text ${done?'done':''}">${item}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('');
+
+  renderLibros();
+}
+
+function toggleMeta(key) {
+  const saved = loadMetas();
+  saved[key] = !saved[key];
+  saveMetas(saved);
+  renderMetas();
+}
+
+function renderLibros() {
+  const libros = loadLibros();
+  document.getElementById('libros-list').innerHTML = libros.map((l,i)=>`
+    <div class="libro-row">
+      <span>${l}</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="badge badge-green">Leído</span>
+        ${i>0?`<button class="btn-danger" onclick="eliminarLibro(${i})">✕</button>`:''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function agregarLibro() {
+  const inp = document.getElementById('libro-input');
+  if(!inp.value.trim()) return;
+  const libros = loadLibros();
+  libros.push(inp.value.trim());
+  saveLibros(libros);
+  inp.value='';
+  renderLibros();
+  toast('✓ Libro agregado');
+}
+
+function eliminarLibro(idx) {
+  const libros = loadLibros();
+  libros.splice(idx,1);
+  saveLibros(libros);
+  renderLibros();
+}
+
+function renderProyecto42k() {
+  const today = new Date();
+  const todayIso = new Date(today.getTime() - today.getTimezoneOffset()*60000).toISOString().split('T')[0];
+  const totalDays = PROJECT_42K_PHASES.reduce((sum, phase)=>sum + diffDaysInclusive(phase.start, phase.end), 0);
+  const marathonDate = PROJECT_42K_PHASES[PROJECT_42K_PHASES.length - 1].end;
+  const currentPhase = PROJECT_42K_PHASES.find(phase => todayIso >= phase.start && todayIso <= phase.end) || null;
+  const nextPhase = PROJECT_42K_PHASES.find(phase => todayIso < phase.start) || null;
+  const daysToMarathon = Math.max(0, Math.ceil((new Date(marathonDate+'T12:00:00') - today) / 86400000));
+
+  document.getElementById('project-metrics').innerHTML = `
+    <div class="metric-card">
+      <div class="metric-label">Subfases</div>
+      <div class="metric-value blue">${PROJECT_42K_PHASES.length}</div>
+      <div class="metric-sub">Del primer bloque al taper</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Duración total</div>
+      <div class="metric-value">${fmt(totalDays)}</div>
+      <div class="metric-sub">días planificados</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Fase actual</div>
+      <div class="metric-value green" style="font-size:18px">${currentPhase ? currentPhase.phase : 'Previo'}</div>
+      <div class="metric-sub">${currentPhase ? currentPhase.year : 'Antes del inicio formal'}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Cuenta regresiva</div>
+      <div class="metric-value amber">${fmt(daysToMarathon)}</div>
+      <div class="metric-sub">días hasta el 14/09/2028</div>
+    </div>
+  `;
+
+  document.getElementById('project-summary').innerHTML = `
+    <div class="project-summary-item">
+      <div class="project-summary-label">Inicio del plan</div>
+      <div class="project-summary-value">${fmtDateLong(PROJECT_42K_PHASES[0].start)}</div>
+    </div>
+    <div class="project-summary-item">
+      <div class="project-summary-label">Maratón objetivo</div>
+      <div class="project-summary-value">${fmtDateLong(marathonDate)}</div>
+    </div>
+    <div class="project-summary-item">
+      <div class="project-summary-label">Bloque en curso</div>
+      <div class="project-summary-value">${currentPhase ? currentPhase.phase : 'Aún no iniciado'}</div>
+    </div>
+    <div class="project-summary-item">
+      <div class="project-summary-label">Próxima subfase</div>
+      <div class="project-summary-value">${nextPhase ? `${nextPhase.phase} · ${fmtDate(nextPhase.start)}` : 'Ya en bloque final'}</div>
+    </div>
+  `;
+
+  document.getElementById('project-phase-grid').innerHTML = PROJECT_42K_PHASES.map(phase => `
+    <div class="phase-card ${currentPhase && currentPhase.phase === phase.phase ? 'current' : ''}">
+      <div class="phase-top">
+        <div>
+          <div class="phase-year">${phase.year}</div>
+          <div class="phase-name">${phase.phase}</div>
+          <div class="phase-range">${fmtDateLong(phase.start)} al ${fmtDateLong(phase.end)}</div>
+        </div>
+        <div class="phase-days">${diffDaysInclusive(phase.start, phase.end)} días</div>
+      </div>
+      <div class="metric-sub" style="margin-top:0">${phase.focus}</div>
+      <div class="week-plan">
+        ${phase.week.map(([day, task]) => `
+          <div class="day-pill">
+            <div class="day-pill-label">${day}</div>
+            <div class="day-pill-text">${task}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="phase-notes">${phase.notes}</div>
+    </div>
+  `).join('');
+}
+
+function getCalendarMonthLabel(date) {
+  return date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+}
+
+function getCalendarDayRange(date) {
+  const first = new Date(date.getFullYear(), date.getMonth(), 1);
+  const firstDay = first.getDay();
+  const shift = firstDay === 0 ? 6 : firstDay - 1;
+  const start = new Date(first);
+  start.setDate(first.getDate() - shift);
+  return Array.from({ length: 42 }, (_, idx) => {
+    const day = new Date(start);
+    day.setDate(start.getDate() + idx);
+    return day;
+  });
+}
+
+function sortCalendarEvents(events) {
+  return [...events].sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    if ((a.start || '') !== (b.start || '')) return (a.start || '').localeCompare(b.start || '');
+    return a.title.localeCompare(b.title);
+  });
+}
+
+function addDaysToIso(dateStr, offset) {
+  const date = new Date(dateStr + 'T12:00:00');
+  date.setDate(date.getDate() + offset);
+  return new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString().split('T')[0];
+}
+
+function getWeekStartIso(dateStr) {
+  const date = new Date(dateStr + 'T12:00:00');
+  const day = date.getDay();
+  const shift = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + shift);
+  return new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString().split('T')[0];
+}
+
+function expandCalendarEvent(event, rangeStart, rangeEnd) {
+  const results = [];
+  const repeat = event.repeat || 'none';
+  const until = event.repeat_until || event.date;
+
+  if (repeat !== 'weekly') {
+    if (event.date >= rangeStart && event.date <= rangeEnd) results.push({ ...event, occurrenceDate: event.date });
+    return results;
+  }
+
+  let cursor = event.date;
+  while (cursor <= until && cursor <= rangeEnd) {
+    if (cursor >= rangeStart) results.push({ ...event, occurrenceDate: cursor });
+    cursor = addDaysToIso(cursor, 7);
+  }
+  return results;
+}
+
+function getCalendarOccurrences(events, rangeStart, rangeEnd) {
+  return sortCalendarEvents(
+    events.flatMap(event => expandCalendarEvent(event, rangeStart, rangeEnd).map(item => ({
+      ...item,
+      date: item.occurrenceDate
+    })))
+  );
+}
+
+function toggleCalendarRepeatUntil() {
+  const repeat = document.getElementById('cal-repeat').value;
+  document.getElementById('cal-repeat-until-wrap').classList.toggle('calendar-hidden', repeat !== 'weekly');
+}
+
+function getCalendarColorName(color) {
+  const names = {
+    '#4f9eff': 'Bloque azul',
+    '#00d4a0': 'Bloque verde',
+    '#ffa040': 'Bloque naranja',
+    '#ff5c5c': 'Bloque rojo',
+    '#a78bfa': 'Bloque violeta',
+    '#f472b6': 'Bloque rosa',
+    '#ffe600': 'Bloque amarillo',
+    '#22c55e': 'Bloque lima',
+    '#06b6d4': 'Bloque cian',
+    '#8b5cf6': 'Bloque púrpura',
+    '#ec4899': 'Bloque magenta',
+    '#f97316': 'Bloque naranja fuerte',
+    '#eab308': 'Bloque mostaza',
+    '#14b8a6': 'Bloque turquesa'
+  };
+  return names[color] || 'Bloque';
+}
+
+function selectCalendarDate(dateStr) {
+  calendarSelectedDate = dateStr;
+  document.getElementById('cal-date').value = dateStr;
+  renderCalendar();
+}
+
+function changeCalendarMonth(offset) {
+  calendarViewDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + offset, 1);
+  renderCalendar();
+}
+
+function goToCalendarToday() {
+  const today = new Date();
+  calendarViewDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  selectCalendarDate(today.toISOString().split('T')[0]);
+}
+
+function resetCalendarForm() {
+  document.getElementById('cal-event-id').value = '';
+  document.getElementById('cal-title').value = '';
+  document.getElementById('cal-date').value = calendarSelectedDate;
+  document.getElementById('cal-start').value = '';
+  document.getElementById('cal-end').value = '';
+  document.getElementById('cal-color').value = '#4f9eff';
+  document.getElementById('cal-repeat').value = 'none';
+  document.getElementById('cal-repeat-until').value = '';
+  document.getElementById('cal-notes').value = '';
+  document.getElementById('cal-cancel-btn').classList.add('calendar-hidden');
+  toggleCalendarRepeatUntil();
+}
+
+function editCalendarEvent(id) {
+  const event = loadCalendarEvents().find(ev => ev.id === id);
+  if (!event) return;
+  document.getElementById('cal-event-id').value = event.id;
+  document.getElementById('cal-title').value = event.title;
+  document.getElementById('cal-date').value = event.date;
+  document.getElementById('cal-start').value = event.start || '';
+  document.getElementById('cal-end').value = event.end || '';
+  document.getElementById('cal-color').value = event.color || '#4f9eff';
+  document.getElementById('cal-repeat').value = event.repeat || 'none';
+  document.getElementById('cal-repeat-until').value = event.repeat_until || '';
+  document.getElementById('cal-notes').value = event.notes || '';
+  document.getElementById('cal-cancel-btn').classList.remove('calendar-hidden');
+  toggleCalendarRepeatUntil();
+  calendarSelectedDate = event.date;
+  calendarViewDate = new Date(event.date + 'T12:00:00');
+  renderCalendar();
+}
+
+function deleteCalendarEvent(id) {
+  if (!confirm('¿Eliminar este evento del calendario?')) return;
+  const events = loadCalendarEvents().filter(ev => ev.id !== id);
+  saveCalendarEvents(events);
+  renderCalendar();
+  resetCalendarForm();
+  toast('Evento eliminado');
+}
+
+function saveCalendarEvent() {
+  const id = document.getElementById('cal-event-id').value.trim();
+  const title = document.getElementById('cal-title').value.trim();
+  const date = document.getElementById('cal-date').value;
+  const start = document.getElementById('cal-start').value;
+  const end = document.getElementById('cal-end').value;
+  const color = document.getElementById('cal-color').value;
+  const repeat = document.getElementById('cal-repeat').value;
+  const repeatUntil = document.getElementById('cal-repeat-until').value;
+  const notes = document.getElementById('cal-notes').value.trim();
+
+  if (!title || !date) {
+    toast('Completá al menos título y fecha');
+    return;
+  }
+  if (repeat === 'weekly' && !repeatUntil) {
+    toast('Elegí hasta cuándo se repite');
+    return;
+  }
+  if (repeat === 'weekly' && repeatUntil < date) {
+    toast('La fecha de repetición no puede ser anterior al inicio');
+    return;
+  }
+
+  const events = loadCalendarEvents().filter(ev => ev.id !== id);
+  events.push({
+    id: id || String(Date.now()),
+    title,
+    date,
+    start: start || null,
+    end: end || null,
+    color,
+    repeat,
+    repeat_until: repeat === 'weekly' ? repeatUntil : null,
+    notes: notes || null
+  });
+
+  saveCalendarEvents(sortCalendarEvents(events));
+  calendarSelectedDate = date;
+  calendarViewDate = new Date(date + 'T12:00:00');
+  renderCalendar();
+  resetCalendarForm();
+  toast(id ? 'Evento actualizado' : 'Evento guardado');
+}
+
+function renderWeeklySchedule(allEvents) {
+  const weekStart = getWeekStartIso(calendarSelectedDate);
+  const weekdays = Array.from({ length: 5 }, (_, idx) => addDaysToIso(weekStart, idx));
+  const slots = ['07:00','09:00','11:00','13:00','15:00','17:00','19:00'];
+  const slotEnds = ['09:00','11:00','13:00','15:00','17:00','19:00','21:00'];
+  const weekEvents = getCalendarOccurrences(allEvents, weekdays[0], weekdays[4]);
+  const board = document.getElementById('calendar-week-board');
+
+  const headerHtml = `
+    <div></div>
+    ${weekdays.map(day => {
+      const d = new Date(day + 'T12:00:00');
+      return `<div class="calendar-week-head">${d.toLocaleDateString('es-AR', { weekday: 'long' })}</div>`;
+    }).join('')}
+  `;
+
+  const rowsHtml = slots.map((slot, rowIdx) => `
+    <div class="calendar-week-time">${slot.replace(':00', '')}-${slotEnds[rowIdx].replace(':00', '')}</div>
+    ${weekdays.map(day => {
+      const matching = weekEvents.filter(ev => ev.date === day && ev.start && ev.start >= slot && ev.start < slotEnds[rowIdx]);
+      if (!matching.length) return '<div class="calendar-week-cell"></div>';
+      const ev = matching[0];
+      return `
+        <div class="calendar-week-cell">
+          <div class="calendar-week-block" style="background:${ev.color || '#4f9eff'}">
+            <div>${ev.title}</div>
+            <div class="calendar-week-block-time">${ev.start || '--:--'}${ev.end ? ' - ' + ev.end : ''}</div>
+            <div class="calendar-week-block-tag">${ev.repeat === 'weekly' ? 'SEMANAL' : 'ÚNICO'}</div>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `).join('');
+
+  board.innerHTML = headerHtml + rowsHtml;
+}
+
+function renderCalendar() {
+  const masterEvents = sortCalendarEvents(loadCalendarEvents());
+  document.getElementById('cal-date').value = document.getElementById('cal-date').value || calendarSelectedDate;
+  renderWeeklySchedule(masterEvents);
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+window.addEventListener('load', ()=>{
+  const dias = loadData();
+  renderResumen(dias);
+  updateSidebar(dias);
+  resetCalendarForm();
+  initializeFirebaseSync();
+});
+</script>
+</body>
+</html>
