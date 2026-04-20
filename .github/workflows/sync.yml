@@ -1,4 +1,4 @@
-ame: Sync Fitness Data
+name: Sync Fitness Data
 
 on:
   schedule:
