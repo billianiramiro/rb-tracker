@@ -37,7 +37,8 @@ def get_credentials():
     return creds
 
 def get_today_millis():
-    now   = datetime.now(timezone.utc)
+    ARG = timezone(timedelta(hours=-3))
+    now   = datetime.now(ARG)
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     end   = now.replace(hour=23, minute=59, second=59, microsecond=0)
     return int(start.timestamp() * 1000), int(end.timestamp() * 1000)
