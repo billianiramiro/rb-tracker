@@ -1,0 +1,30 @@
+ame: Sync Fitness Data
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 23:00 Argentina (UTC-3) = 02:00 UTC
+  workflow_dispatch:       # permite correrlo manualmente desde GitHub
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client requests
+
+      - name: Run sync script
+        env:
+          GOOGLE_TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
+          GITHUB_TOKEN_PAT:  ${{ secrets.GITHUB_TOKEN_PAT }}
+          GITHUB_REPO:       ${{ github.repository }}
+        run: python sync_fitness.py
