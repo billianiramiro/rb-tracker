@@ -80,7 +80,9 @@ def fetch_fitness_data():
 
     response = service.users().dataset().aggregate(userId='me', body=body).execute()
 
-    fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+    from datetime import timezone, timedelta
+ARG = timezone(timedelta(hours=-3))
+fecha_hoy = datetime.now(ARG).strftime("%Y-%m-%d")
     data = {
         "fecha":               fecha_hoy,
         "calorias_quemadas":   0,
