@@ -1,10 +1,10 @@
 {
   "fecha": "2026-04-19",
-  "calorias_quemadas": 0,
+  "calorias_quemadas": 1533,
   "calorias_consumidas": 0,
-  "pasos": 0,
-  "minutos_activos": 0,
-  "distancia_km": 0.0,
-  "ritmo_medio": null,
+  "pasos": 1165,
+  "minutos_activos": 13,
+  "distancia_km": 0.59,
+  "ritmo_medio": 22.03,
   "ejercicio": "DESCANSO"
 }
